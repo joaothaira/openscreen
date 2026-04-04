@@ -198,7 +198,7 @@ export default function VideoEditor() {
 				webcamSegments = [
 					{
 						id: "webcam-1",
-						videoPath: media.webcamVideoPath,
+						videoPath: toFileUrl(webcamSourcePath),
 						sourcePath: webcamSourcePath,
 						startMs: 0,
 						durationMs,
@@ -387,7 +387,7 @@ export default function VideoEditor() {
 							webcamSegments: [
 								{
 									id: `webcam-${nextWebcamSegmentIdRef.current++}`,
-									videoPath: session.webcamVideoPath,
+									videoPath: toFileUrl(webcamSourcePath),
 									sourcePath: webcamSourcePath,
 									startMs: 0,
 									durationMs,

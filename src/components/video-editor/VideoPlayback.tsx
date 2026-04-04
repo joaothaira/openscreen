@@ -1321,6 +1321,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 										backgroundColor: "#000",
 										transition: "border-radius 0.35s ease-in-out",
 									}}
+									onLoadedMetadata={() => {
+										const v = webcamVideoRef.current;
+										if (v && v.videoWidth > 0 && v.videoHeight > 0) {
+											setWebcamDimensions({ width: v.videoWidth, height: v.videoHeight });
+										}
+									}}
 									onPointerDown={handleWebcamPointerDown}
 									onPointerMove={handleWebcamPointerMove}
 									onPointerUp={handleWebcamPointerUp}
