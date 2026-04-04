@@ -309,16 +309,30 @@ export class VideoExporter {
 			if (hasAudio && !this.cancelled) {
 				const demuxer = streamingDecoder.getDemuxer();
 				if (demuxer) {
-					console.log("[VideoExporter] Processing audio track...");
 					this.audioProcessor = new AudioProcessor();
-					await this.audioProcessor.process(
-						demuxer,
-						muxer,
-						this.config.videoUrl,
-						this.config.trimRegions,
-						this.config.speedRegions,
-						readEndSec,
-					);
+					const webcamSegs = this.config.webcamSegments ?? [];
+
+					if (webcamSegs.length > 0) {
+						console.log("[VideoExporter] Processing audio with webcam mix...");
+						await this.audioProcessor.processWithWebcam(
+							muxer,
+							this.config.videoUrl,
+							webcamSegs,
+							this.config.trimRegions,
+							this.config.speedRegions,
+							effectiveDuration,
+						);
+					} else {
+						console.log("[VideoExporter] Processing audio track...");
+						await this.audioProcessor.process(
+							demuxer,
+							muxer,
+							this.config.videoUrl,
+							this.config.trimRegions,
+							this.config.speedRegions,
+							readEndSec,
+						);
+					}
 				}
 			}
 

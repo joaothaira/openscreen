@@ -353,9 +353,9 @@ export default function VideoEditor() {
 
 	const hasUnsavedChanges = Boolean(
 		currentProjectPath &&
-			currentProjectSnapshot &&
-			lastSavedSnapshot &&
-			currentProjectSnapshot !== lastSavedSnapshot,
+		currentProjectSnapshot &&
+		lastSavedSnapshot &&
+		currentProjectSnapshot !== lastSavedSnapshot,
 	);
 
 	useEffect(() => {
@@ -848,10 +848,10 @@ export default function VideoEditor() {
 				speedRegions: prev.speedRegions.map((region) =>
 					region.id === id
 						? {
-								...region,
-								startMs: Math.round(span.start),
-								endMs: Math.round(span.end),
-							}
+							...region,
+							startMs: Math.round(span.start),
+							endMs: Math.round(span.end),
+						}
 						: region,
 				),
 			}));
@@ -1605,12 +1605,12 @@ export default function VideoEditor() {
 			gifConfig:
 				exportFormat === "gif"
 					? {
-							frameRate: gifFrameRate,
-							loop: gifLoop,
-							sizePreset: gifSizePreset,
-							width: gifDimensions.width,
-							height: gifDimensions.height,
-						}
+						frameRate: gifFrameRate,
+						loop: gifLoop,
+						sizePreset: gifSizePreset,
+						width: gifDimensions.width,
+						height: gifDimensions.height,
+					}
 					: undefined,
 		};
 
@@ -1736,10 +1736,10 @@ export default function VideoEditor() {
 											aspectRatio:
 												aspectRatio === "native"
 													? getNativeAspectRatioValue(
-															videoPlaybackRef.current?.video?.videoWidth || 1920,
-															videoPlaybackRef.current?.video?.videoHeight || 1080,
-															cropRegion,
-														)
+														videoPlaybackRef.current?.video?.videoWidth || 1920,
+														videoPlaybackRef.current?.video?.videoHeight || 1080,
+														cropRegion,
+													)
 													: getAspectRatioValue(aspectRatio),
 										}}
 									>
@@ -1954,10 +1954,10 @@ export default function VideoEditor() {
 							GIF_SIZE_PRESETS,
 							aspectRatio === "native"
 								? getNativeAspectRatioValue(
-										videoPlaybackRef.current?.video?.videoWidth || 1920,
-										videoPlaybackRef.current?.video?.videoHeight || 1080,
-										cropRegion,
-									)
+									videoPlaybackRef.current?.video?.videoWidth || 1920,
+									videoPlaybackRef.current?.video?.videoHeight || 1080,
+									cropRegion,
+								)
 								: getAspectRatioValue(aspectRatio),
 						)}
 						onExport={handleOpenExportDialog}

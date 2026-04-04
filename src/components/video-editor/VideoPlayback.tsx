@@ -1325,7 +1325,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									onPointerMove={handleWebcamPointerMove}
 									onPointerUp={handleWebcamPointerUp}
 									onPointerLeave={handleWebcamPointerUp}
-									muted
 									preload="metadata"
 									playsInline
 								/>

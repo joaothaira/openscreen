@@ -69,6 +69,11 @@ export class SegmentedWebcamSource {
 	 * Return the webcam frame for the given main-video source timestamp (ms).
 	 * Returns null when no segment is active at that timestamp.
 	 * The returned VideoFrame must be closed by the caller.
+	 *
+	 * Discards any frames whose timestamp is earlier than the expected webcam
+	 * internal time. This handles trim regions: when the main decoder skips
+	 * forward, frames buffered from the trim window are drained and closed
+	 * until we reach the correct position.
 	 */
 	async getFrame(sourceTimestampMs: number): Promise<VideoFrame | null> {
 		const segment = this.segments.find(
@@ -79,7 +84,24 @@ export class SegmentedWebcamSource {
 		const queue = this.queues.get(segment.id);
 		if (!queue) return null;
 
-		return await queue.dequeue();
+		// Expected position within the webcam video (µs). Frames produced during
+		// a trim gap will have timestamps below this and must be discarded.
+		const expectedUs = (sourceTimestampMs - segment.startMs) * 1000;
+		// 100 ms tolerance — comfortably larger than one frame at any frame rate,
+		// so we never discard valid frames due to minor timestamp rounding.
+		const toleranceUs = 100_000;
+
+		while (true) {
+			const frame = await queue.dequeue();
+			if (!frame) return null;
+
+			if (frame.timestamp >= expectedUs - toleranceUs) {
+				return frame;
+			}
+
+			// Frame is from a skipped region — discard and pull the next one.
+			frame.close();
+		}
 	}
 
 	stop(): void {
