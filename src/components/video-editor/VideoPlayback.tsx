@@ -37,6 +37,7 @@ import {
 	type AnnotationRegion,
 	type SpeedRegion,
 	type TrimRegion,
+	type WebcamSegment,
 	ZOOM_DEPTH_SCALES,
 	type ZoomDepth,
 	type ZoomFocus,
@@ -66,7 +67,7 @@ import {
 
 interface VideoPlaybackProps {
 	videoPath: string;
-	webcamVideoPath?: string;
+	webcamSegments?: WebcamSegment[];
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape?: import("./types").WebcamMaskShape;
 	webcamSizePreset?: import("./types").WebcamSizePreset;
@@ -120,7 +121,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 	(
 		{
 			videoPath,
-			webcamVideoPath,
+			webcamSegments = [],
 			webcamLayoutPreset,
 			webcamMaskShape,
 			webcamSizePreset,
@@ -1052,6 +1053,18 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			[webcamLayoutPreset],
 		);
 
+		const activeSegment = useMemo(() => {
+			if (!webcamSegments.length) return null;
+			const currentMs = currentTime * 1000;
+			return (
+				webcamSegments.find((s) => currentMs >= s.startMs && currentMs < s.startMs + s.durationMs) ??
+				null
+			);
+		}, [webcamSegments, currentTime]);
+
+		const activeWebcamPath = activeSegment?.videoPath ?? null;
+		const activeWebcamOffsetSec = activeSegment ? activeSegment.startMs / 1000 : 0;
+
 		const activeFocusRegion = useMemo(() => {
 			if (!webcamFocusRegions.length) return null;
 			const currentMs = currentTime * 1000;
@@ -1099,7 +1112,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 		useEffect(() => {
 			const webcamVideo = webcamVideoRef.current;
-			if (!webcamVideo || !webcamVideoPath) {
+			if (!webcamVideo || !activeWebcamPath) {
 				setWebcamDimensions(null);
 				return;
 			}
@@ -1118,14 +1131,16 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			return () => {
 				webcamVideo.removeEventListener("loadedmetadata", handleLoadedMetadata);
 			};
-		}, [webcamVideoPath]);
+		}, [activeWebcamPath]);
 
 		useEffect(() => {
 			const webcamVideo = webcamVideoRef.current;
-			if (!webcamVideo || !webcamVideoPath) {
+			if (!webcamVideo || !activeWebcamPath) {
+				if (webcamVideo) webcamVideo.pause();
 				return;
 			}
 
+			const webcamTime = Math.max(0, currentTime - activeWebcamOffsetSec);
 			const activeSpeedRegion =
 				speedRegions.find(
 					(region) => currentTime * 1000 >= region.startMs && currentTime * 1000 < region.endMs,
@@ -1134,30 +1149,30 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 			if (!isPlaying) {
 				webcamVideo.pause();
-				if (Math.abs(webcamVideo.currentTime - currentTime) > 0.05) {
-					webcamVideo.currentTime = currentTime;
+				if (Math.abs(webcamVideo.currentTime - webcamTime) > 0.05) {
+					webcamVideo.currentTime = webcamTime;
 				}
 				return;
 			}
 
-			if (Math.abs(webcamVideo.currentTime - currentTime) > 0.15) {
-				webcamVideo.currentTime = currentTime;
+			if (Math.abs(webcamVideo.currentTime - webcamTime) > 0.15) {
+				webcamVideo.currentTime = webcamTime;
 			}
 
 			webcamVideo.play().catch(() => {
 				// Ignore webcam autoplay restoration failures.
 			});
-		}, [currentTime, isPlaying, speedRegions, webcamVideoPath]);
+		}, [currentTime, isPlaying, speedRegions, activeWebcamPath, activeWebcamOffsetSec]);
 
 		useEffect(() => {
 			const webcamVideo = webcamVideoRef.current;
-			if (!webcamVideo || !webcamVideoPath) {
+			if (!webcamVideo || !activeWebcamPath) {
 				return;
 			}
 
 			webcamVideo.pause();
 			webcamVideo.currentTime = 0;
-		}, [webcamVideoPath]);
+		}, [activeWebcamPath]);
 
 		useEffect(() => {
 			let mounted = true;
@@ -1271,7 +1286,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						transition: "filter 0.35s ease-in-out",
 					}}
 				/>
-				{webcamVideoPath &&
+				{activeWebcamPath &&
 					(() => {
 						const activeRect =
 							isInFocusRegion && focusedWebcamRect ? focusedWebcamRect : webcamLayout;
@@ -1297,7 +1312,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							>
 								<video
 									ref={webcamVideoRef}
-									src={webcamVideoPath}
+									src={activeWebcamPath}
 									className={`w-full h-full object-cover ${webcamLayoutPreset === "picture-in-picture" && !isInFocusRegion ? "cursor-grab active:cursor-grabbing" : "pointer-events-none"}`}
 									style={{
 										borderRadius: useClipPath ? 0 : (activeRect?.borderRadius ?? 0),

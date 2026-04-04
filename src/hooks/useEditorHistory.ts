@@ -9,6 +9,7 @@ import type {
 	WebcamLayoutPreset,
 	WebcamMaskShape,
 	WebcamPosition,
+	WebcamSegment,
 	WebcamSizePreset,
 	WebcamStackPosition,
 	ZoomRegion,
@@ -45,6 +46,7 @@ export interface EditorState {
 	webcamPosition: WebcamPosition | null;
 	webcamCornerPreset: WebcamCornerPreset | null;
 	webcamStackPosition: WebcamStackPosition;
+	webcamSegments: WebcamSegment[];
 }
 
 export const INITIAL_EDITOR_STATE: EditorState = {
@@ -67,6 +69,7 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	webcamPosition: DEFAULT_WEBCAM_POSITION,
 	webcamCornerPreset: null,
 	webcamStackPosition: DEFAULT_WEBCAM_STACK_POSITION,
+	webcamSegments: [],
 };
 
 type StateUpdate = Partial<EditorState> | ((prev: EditorState) => Partial<EditorState>);

@@ -12,7 +12,8 @@
 		"pressTrim": "按 T 添加剪辑",
 		"pressAnnotation": "按 A 添加标注",
 		"pressSpeed": "按 S 添加速度",
-		"pressWebcamFocus": "点击添加摄像头聚焦"
+		"pressWebcamFocus": "点击添加摄像头聚焦",
+		"webcamSegment": "摄像头片段"
 	},
 	"labels": {
 		"pan": "平移",
@@ -23,7 +24,8 @@
 		"annotationItem": "标注",
 		"imageItem": "图片",
 		"emptyText": "空文本",
-		"webcamFocusItem": "摄像头聚焦 {{index}}"
+		"webcamFocusItem": "摄像头聚焦 {{index}}",
+		"webcamSegmentItem": "片段 {{index}}"
 	},
 	"emptyState": {
 		"noVideo": "未加载视频",

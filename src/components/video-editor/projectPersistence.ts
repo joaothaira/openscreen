@@ -26,6 +26,7 @@ import {
 	type WebcamLayoutPreset,
 	type WebcamMaskShape,
 	type WebcamPosition,
+	type WebcamSegment,
 	type WebcamSizePreset,
 	type WebcamStackPosition,
 	type ZoomRegion,
@@ -60,6 +61,7 @@ export interface ProjectEditorState {
 	webcamPosition: WebcamPosition | null;
 	webcamCornerPreset: WebcamCornerPreset | null;
 	webcamStackPosition: WebcamStackPosition;
+	webcamSegments: WebcamSegment[];
 	exportQuality: ExportQuality;
 	exportFormat: ExportFormat;
 	gifFrameRate: GifFrameRate;
@@ -460,6 +462,19 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			editor.webcamStackPosition === "top" || editor.webcamStackPosition === "bottom"
 				? editor.webcamStackPosition
 				: DEFAULT_WEBCAM_STACK_POSITION,
+		webcamSegments: Array.isArray(editor.webcamSegments)
+			? editor.webcamSegments.filter(
+					(seg): seg is WebcamSegment =>
+						Boolean(
+							seg &&
+								typeof seg.id === "string" &&
+								typeof seg.videoPath === "string" &&
+								typeof seg.sourcePath === "string" &&
+								isFiniteNumber(seg.startMs) &&
+								isFiniteNumber(seg.durationMs),
+						),
+				)
+			: [],
 		exportQuality:
 			editor.exportQuality === "medium" || editor.exportQuality === "source"
 				? editor.exportQuality

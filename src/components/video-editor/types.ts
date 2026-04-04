@@ -219,6 +219,14 @@ export interface WebcamFocusRegion {
 	focusShape?: WebcamMaskShape;
 }
 
+export interface WebcamSegment {
+	id: string;
+	videoPath: string; // file:// URL for VideoPlayback
+	sourcePath: string; // absolute path for export
+	startMs: number; // position in main timeline (ms)
+	durationMs: number; // segment video duration (ms)
+}
+
 export const SPEED_OPTIONS: Array<{ speed: PlaybackSpeed; label: string }> = [
 	{ speed: 0.25, label: "0.25×" },
 	{ speed: 0.5, label: "0.5×" },
