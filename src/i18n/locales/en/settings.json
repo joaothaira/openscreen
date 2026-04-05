@@ -150,7 +150,8 @@
 		"deco": "Deco",
 		"simple": "Simple",
 		"modern": "Modern",
-		"clean": "Clean"
+		"clean": "Clean",
+		"stencil": "Stencil"
 	},
 	"customFont": {
 		"dialogTitle": "Add Google Font",

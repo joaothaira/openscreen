@@ -150,7 +150,8 @@
 		"deco": "装饰",
 		"simple": "简约",
 		"modern": "现代",
-		"clean": "简洁"
+		"clean": "简洁",
+		"stencil": "模板"
 	},
 	"customFont": {
 		"dialogTitle": "添加 Google 字体",

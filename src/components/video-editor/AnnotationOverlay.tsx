@@ -165,7 +165,8 @@ export function AnnotationOverlay({
 							style={{
 								fontFamily: data.fontFamily,
 								fontSize: `${data.primaryFontSize}px`,
-								fontWeight: "bold",
+								fontWeight: data.fontWeight ?? "700",
+								fontStretch: data.fontStretch ?? "normal",
 								lineHeight: 1.1,
 								letterSpacing: "0.02em",
 								textTransform: "uppercase",
@@ -179,7 +180,8 @@ export function AnnotationOverlay({
 							style={{
 								fontFamily: data.fontFamily,
 								fontSize: `${data.secondaryFontSize}px`,
-								fontWeight: "bold",
+								fontWeight: data.fontWeight ?? "700",
+								fontStretch: data.fontStretch ?? "normal",
 								lineHeight: 1.1,
 								letterSpacing: "0.02em",
 								textTransform: "uppercase",
@@ -251,6 +253,7 @@ export function AnnotationOverlay({
 								fontSize: `${annotation.style.fontSize}px`,
 								fontFamily: annotation.style.fontFamily,
 								fontWeight: annotation.style.fontWeight,
+								fontStretch: annotation.style.fontStretch,
 								fontStyle: annotation.style.fontStyle,
 								textDecoration: annotation.style.textDecoration,
 								textAlign: annotation.style.textAlign,

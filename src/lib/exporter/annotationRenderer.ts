@@ -114,10 +114,11 @@ function renderText(
 	ctx.rect(x, y, width, height);
 	ctx.clip();
 
-	const fontWeight = style.fontWeight === "bold" ? "bold" : "normal";
+	const fontWeight = style.fontWeight ?? "normal";
+	const fontStretch = style.fontStretch ?? "normal";
 	const fontStyle = style.fontStyle === "italic" ? "italic" : "normal";
 	const scaledFontSize = style.fontSize * scaleFactor;
-	ctx.font = `${fontStyle} ${fontWeight} ${scaledFontSize}px ${style.fontFamily}`;
+	ctx.font = `${fontStyle} ${fontWeight} ${fontStretch} ${scaledFontSize}px ${style.fontFamily}`;
 	ctx.textBaseline = "middle";
 
 	const containerPadding = 8 * scaleFactor;
@@ -399,7 +400,7 @@ async function renderCaption(
 	const wrapText = (text: string, fontSize: number): string[][] => {
 		const uppercased = text.toUpperCase();
 		const words = uppercased.split(" ").filter((w) => w.length > 0);
-		ctx.font = `bold ${fontSize}px ${data.fontFamily}`;
+		ctx.font = `${data.fontWeight ?? "700"} ${data.fontStretch ?? "normal"} ${fontSize}px ${data.fontFamily}`;
 		const spaceWidth = ctx.measureText(" ").width;
 		const lines: string[][] = [];
 		let currentLine: string[] = [];
@@ -460,7 +461,7 @@ async function renderCaption(
 		fontSize: number,
 		blockStartY: number,
 	) => {
-		ctx.font = `bold ${fontSize}px ${data.fontFamily}`;
+		ctx.font = `${data.fontWeight ?? "700"} ${data.fontStretch ?? "normal"} ${fontSize}px ${data.fontFamily}`;
 		ctx.textBaseline = "top";
 		const spaceWidth = ctx.measureText(" ").width;
 		const lineHeight = fontSize * 1.2;

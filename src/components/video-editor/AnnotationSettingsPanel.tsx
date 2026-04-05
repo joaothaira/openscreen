@@ -3,7 +3,6 @@ import {
 	AlignCenter,
 	AlignLeft,
 	AlignRight,
-	Bold,
 	ChevronDown,
 	Image as ImageIcon,
 	Info,
@@ -64,9 +63,34 @@ const FONT_FAMILIES = [
 	{ value: "Arial, sans-serif", labelKey: "simple" },
 	{ value: "Verdana, sans-serif", labelKey: "modern" },
 	{ value: "Trebuchet MS, sans-serif", labelKey: "clean" },
+	{ value: "'Saira Stencil', sans-serif", labelKey: "stencil" },
 ];
 
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 80, 96, 128];
+
+const FONT_WEIGHTS = [
+	{ value: "100", label: "Thin" },
+	{ value: "200", label: "Extra Light" },
+	{ value: "300", label: "Light" },
+	{ value: "400", label: "Regular" },
+	{ value: "500", label: "Medium" },
+	{ value: "600", label: "Semi Bold" },
+	{ value: "700", label: "Bold" },
+	{ value: "800", label: "Extra Bold" },
+	{ value: "900", label: "Black" },
+];
+
+const FONT_STRETCHES = [
+	{ value: "ultra-condensed", label: "Ultra Condensed" },
+	{ value: "extra-condensed", label: "Extra Condensed" },
+	{ value: "condensed", label: "Condensed" },
+	{ value: "semi-condensed", label: "Semi Condensed" },
+	{ value: "normal", label: "Normal" },
+	{ value: "semi-expanded", label: "Semi Expanded" },
+	{ value: "expanded", label: "Expanded" },
+	{ value: "extra-expanded", label: "Extra Expanded" },
+	{ value: "ultra-expanded", label: "Ultra Expanded" },
+];
 
 export function AnnotationSettingsPanel({
 	annotation,
@@ -91,6 +115,7 @@ export function AnnotationSettingsPanel({
 		simple: t("fontStyles.simple"),
 		modern: t("fontStyles.modern"),
 		clean: t("fontStyles.clean"),
+		stencil: t("fontStyles.stencil"),
 	};
 
 	// Load custom fonts on mount
@@ -308,25 +333,56 @@ export function AnnotationSettingsPanel({
 								/>
 							</div>
 
+							{/* Weight & Stretch */}
+							<div className="grid grid-cols-2 gap-2">
+								<div>
+									<label className="text-xs font-medium text-slate-200 mb-2 block">
+										Weight
+									</label>
+									<Select
+										value={annotation.style.fontWeight}
+										onValueChange={(v) => onStyleChange({ fontWeight: v })}
+									>
+										<SelectTrigger className="w-full bg-white/5 border-white/10 text-slate-200 h-9 text-xs">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent className="bg-[#1a1a1c] border-white/10 text-slate-200">
+											{FONT_WEIGHTS.map((w) => (
+												<SelectItem key={w.value} value={w.value}>
+													{w.label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								<div>
+									<label className="text-xs font-medium text-slate-200 mb-2 block">
+										Width
+									</label>
+									<Select
+										value={annotation.style.fontStretch}
+										onValueChange={(v) => onStyleChange({ fontStretch: v })}
+									>
+										<SelectTrigger className="w-full bg-white/5 border-white/10 text-slate-200 h-9 text-xs">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent className="bg-[#1a1a1c] border-white/10 text-slate-200">
+											{FONT_STRETCHES.map((s) => (
+												<SelectItem key={s.value} value={s.value}>
+													{s.label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+
 							{/* Formatting Toggles */}
 							<div className="flex items-center justify-between gap-2">
 								<ToggleGroup
 									type="multiple"
 									className="justify-start bg-white/5 p-1 rounded-lg border border-white/5"
 								>
-									<ToggleGroupItem
-										value="bold"
-										aria-label="Toggle bold"
-										data-state={annotation.style.fontWeight === "bold" ? "on" : "off"}
-										onClick={() =>
-											onStyleChange({
-												fontWeight: annotation.style.fontWeight === "bold" ? "normal" : "bold",
-											})
-										}
-										className="h-8 w-8 data-[state=on]:bg-[#34B27B] data-[state=on]:text-white text-slate-400 hover:bg-white/5 hover:text-slate-200"
-									>
-										<Bold className="h-4 w-4" />
-									</ToggleGroupItem>
 									<ToggleGroupItem
 										value="italic"
 										aria-label="Toggle italic"
@@ -654,6 +710,88 @@ export function AnnotationSettingsPanel({
 											onChange={(e) => update({ secondaryText: e.target.value })}
 											className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-slate-200 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#34B27B]"
 										/>
+									</div>
+									<div>
+										<label className="text-xs font-medium text-slate-200 mb-2 block">
+											{t("annotation.fontStyle")}
+										</label>
+										<Select
+											value={data.fontFamily}
+											onValueChange={(v) => update({ fontFamily: v })}
+										>
+											<SelectTrigger className="w-full bg-white/5 border-white/10 text-slate-200 h-9 text-xs">
+												<SelectValue placeholder={t("annotation.selectStyle")} />
+											</SelectTrigger>
+											<SelectContent className="bg-[#1a1a1c] border-white/10 text-slate-200 max-h-[300px]">
+												{FONT_FAMILIES.map((font) => (
+													<SelectItem
+														key={font.value}
+														value={font.value}
+														style={{ fontFamily: font.value }}
+													>
+														{fontStyleLabels[font.labelKey]}
+													</SelectItem>
+												))}
+												{customFonts.length > 0 && (
+													<>
+														<div className="px-2 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+															{t("annotation.customFonts")}
+														</div>
+														{customFonts.map((font) => (
+															<SelectItem
+																key={font.id}
+																value={font.fontFamily}
+																style={{ fontFamily: font.fontFamily }}
+															>
+																{font.name}
+															</SelectItem>
+														))}
+													</>
+												)}
+											</SelectContent>
+										</Select>
+									</div>
+									<div className="grid grid-cols-2 gap-2">
+										<div>
+											<label className="text-xs font-medium text-slate-200 mb-2 block">
+												Weight
+											</label>
+											<Select
+												value={data.fontWeight ?? "700"}
+												onValueChange={(v) => update({ fontWeight: v })}
+											>
+												<SelectTrigger className="w-full bg-white/5 border-white/10 text-slate-200 h-9 text-xs">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent className="bg-[#1a1a1c] border-white/10 text-slate-200">
+													{FONT_WEIGHTS.map((w) => (
+														<SelectItem key={w.value} value={w.value}>
+															{w.label}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										</div>
+										<div>
+											<label className="text-xs font-medium text-slate-200 mb-2 block">
+												Width
+											</label>
+											<Select
+												value={data.fontStretch ?? "normal"}
+												onValueChange={(v) => update({ fontStretch: v })}
+											>
+												<SelectTrigger className="w-full bg-white/5 border-white/10 text-slate-200 h-9 text-xs">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent className="bg-[#1a1a1c] border-white/10 text-slate-200">
+													{FONT_STRETCHES.map((s) => (
+														<SelectItem key={s.value} value={s.value}>
+															{s.label}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										</div>
 									</div>
 									<div className="grid grid-cols-2 gap-3">
 										<div>

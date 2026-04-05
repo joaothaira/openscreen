@@ -87,6 +87,8 @@ export interface CaptionData {
 	primaryFontSize: number;
 	secondaryFontSize: number;
 	fontFamily: string;
+	fontWeight?: string;
+	fontStretch?: string;
 	gradientDirection: CaptionGradientDirection;
 	textAlign: "left" | "center" | "right";
 	wordDelay: number; // ms between each word appearing
@@ -109,7 +111,8 @@ export interface AnnotationTextStyle {
 	backgroundColor: string;
 	fontSize: number; // pixels
 	fontFamily: string;
-	fontWeight: "normal" | "bold";
+	fontWeight: string;
+	fontStretch: string;
 	fontStyle: "normal" | "italic";
 	textDecoration: "none" | "underline";
 	textAlign: "left" | "center" | "right";
@@ -146,8 +149,9 @@ export const DEFAULT_ANNOTATION_STYLE: AnnotationTextStyle = {
 	color: "#ffffff",
 	backgroundColor: "transparent",
 	fontSize: 32,
-	fontFamily: "Inter",
-	fontWeight: "bold",
+	fontFamily: "'Inter",
+	fontWeight: "700",
+	fontStretch: "normal",
 	fontStyle: "normal",
 	textDecoration: "none",
 	textAlign: "center",
@@ -183,6 +187,8 @@ export const DEFAULT_CAPTION_DATA: CaptionData = {
 	primaryFontSize: 64,
 	secondaryFontSize: 48,
 	fontFamily: "Impact, Arial Black, sans-serif",
+	fontWeight: "700",
+	fontStretch: "normal",
 	gradientDirection: "bottom",
 	textAlign: "center",
 	wordDelay: 150,
