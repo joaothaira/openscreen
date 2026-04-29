@@ -13,6 +13,7 @@ import {
 	DEFAULT_FIGURE_DATA,
 	DEFAULT_MARKER_DATA,
 	DEFAULT_PLAYBACK_SPEED,
+	DEFAULT_SUBTITLE_STYLE,
 	DEFAULT_WEBCAM_LAYOUT_PRESET,
 	DEFAULT_WEBCAM_MASK_SHAPE,
 	DEFAULT_WEBCAM_POSITION,
@@ -20,6 +21,9 @@ import {
 	DEFAULT_WEBCAM_STACK_POSITION,
 	DEFAULT_ZOOM_DEPTH,
 	type SpeedRegion,
+	type SubtitleItem,
+	type SubtitleStyle,
+	type SubtitleTemplate,
 	type TrimRegion,
 	type WebcamCornerPreset,
 	type WebcamFocusRegion,
@@ -67,6 +71,9 @@ export interface ProjectEditorState {
 	gifFrameRate: GifFrameRate;
 	gifLoop: boolean;
 	gifSizePreset: GifSizePreset;
+	subtitleRegions: SubtitleItem[];
+	showSubtitles: boolean;
+	subtitleStyle: SubtitleStyle;
 }
 
 export interface EditorProjectData {
@@ -494,6 +501,65 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			editor.gifSizePreset === "original"
 				? editor.gifSizePreset
 				: "medium",
+		subtitleRegions: Array.isArray(editor.subtitleRegions)
+			? editor.subtitleRegions
+					.filter((item): item is SubtitleItem =>
+						Boolean(
+							item &&
+								typeof item.id === "string" &&
+								typeof item.text === "string" &&
+								isFiniteNumber(item.startMs) &&
+								isFiniteNumber(item.endMs),
+						),
+					)
+					.map((item) => ({
+						id: item.id,
+						startMs: Math.max(0, Math.round(item.startMs)),
+						endMs: Math.max(0, Math.round(item.endMs)),
+						text: item.text,
+					}))
+			: [],
+		showSubtitles: typeof editor.showSubtitles === "boolean" ? editor.showSubtitles : true,
+		subtitleStyle:
+			editor.subtitleStyle &&
+			typeof editor.subtitleStyle === "object" &&
+			isFiniteNumber((editor.subtitleStyle as SubtitleStyle).fontSize)
+				? {
+						fontSize: clamp(
+							isFiniteNumber((editor.subtitleStyle as SubtitleStyle).fontSize)
+								? (editor.subtitleStyle as SubtitleStyle).fontSize
+								: DEFAULT_SUBTITLE_STYLE.fontSize,
+							8,
+							120,
+						),
+						fontColor:
+							typeof (editor.subtitleStyle as SubtitleStyle).fontColor === "string"
+								? (editor.subtitleStyle as SubtitleStyle).fontColor
+								: DEFAULT_SUBTITLE_STYLE.fontColor,
+						backgroundColor:
+							typeof (editor.subtitleStyle as SubtitleStyle).backgroundColor === "string"
+								? (editor.subtitleStyle as SubtitleStyle).backgroundColor
+								: DEFAULT_SUBTITLE_STYLE.backgroundColor,
+						position:
+							(editor.subtitleStyle as SubtitleStyle).position === "top" ? "top" : "bottom",
+						bottomOffset: clamp(
+							isFiniteNumber((editor.subtitleStyle as SubtitleStyle).bottomOffset)
+								? (editor.subtitleStyle as SubtitleStyle).bottomOffset
+								: DEFAULT_SUBTITLE_STYLE.bottomOffset,
+							0,
+							50,
+						),
+						fontFamily:
+							typeof (editor.subtitleStyle as SubtitleStyle).fontFamily === "string"
+								? (editor.subtitleStyle as SubtitleStyle).fontFamily
+								: DEFAULT_SUBTITLE_STYLE.fontFamily,
+						template: (
+							["classic", "minimal", "bold", "boxed", "cinematic", "outline", "glow", "stacked", "highlight"] as SubtitleTemplate[]
+						).includes((editor.subtitleStyle as SubtitleStyle).template)
+							? (editor.subtitleStyle as SubtitleStyle).template
+							: "classic",
+					}
+				: DEFAULT_SUBTITLE_STYLE,
 	};
 }
 

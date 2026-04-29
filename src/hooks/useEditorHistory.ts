@@ -3,6 +3,8 @@ import type {
 	AnnotationRegion,
 	CropRegion,
 	SpeedRegion,
+	SubtitleItem,
+	SubtitleStyle,
 	TrimRegion,
 	WebcamCornerPreset,
 	WebcamFocusRegion,
@@ -16,6 +18,7 @@ import type {
 } from "@/components/video-editor/types";
 import {
 	DEFAULT_CROP_REGION,
+	DEFAULT_SUBTITLE_STYLE,
 	DEFAULT_WEBCAM_LAYOUT_PRESET,
 	DEFAULT_WEBCAM_MASK_SHAPE,
 	DEFAULT_WEBCAM_POSITION,
@@ -47,6 +50,9 @@ export interface EditorState {
 	webcamCornerPreset: WebcamCornerPreset | null;
 	webcamStackPosition: WebcamStackPosition;
 	webcamSegments: WebcamSegment[];
+	subtitleRegions: SubtitleItem[];
+	showSubtitles: boolean;
+	subtitleStyle: SubtitleStyle;
 }
 
 export const INITIAL_EDITOR_STATE: EditorState = {
@@ -70,6 +76,9 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	webcamCornerPreset: null,
 	webcamStackPosition: DEFAULT_WEBCAM_STACK_POSITION,
 	webcamSegments: [],
+	subtitleRegions: [],
+	showSubtitles: true,
+	subtitleStyle: DEFAULT_SUBTITLE_STYLE,
 };
 
 type StateUpdate = Partial<EditorState> | ((prev: EditorState) => Partial<EditorState>);

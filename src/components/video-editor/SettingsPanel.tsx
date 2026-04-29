@@ -9,6 +9,7 @@ import {
 	Palette,
 	Sparkles,
 	Star,
+	Subtitles,
 	Trash2,
 	Unlock,
 	Upload,
@@ -60,7 +61,7 @@ import type {
 	ZoomDepth,
 	ZoomFocusMode,
 } from "./types";
-import { SPEED_OPTIONS } from "./types";
+import { SPEED_OPTIONS, SUBTITLE_TEMPLATES } from "./types";
 
 const WALLPAPER_COUNT = 18;
 const WALLPAPER_RELATIVE = Array.from(
@@ -169,6 +170,15 @@ interface SettingsPanelProps {
 	selectedWebcamFocusShape?: WebcamMaskShape;
 	onWebcamFocusShapeChange?: (shape: WebcamMaskShape) => void;
 	onWebcamFocusDelete?: (id: string) => void;
+	subtitleRegions?: import("./types").SubtitleItem[];
+	showSubtitles?: boolean;
+	onShowSubtitlesChange?: (show: boolean) => void;
+	subtitleStyle?: import("./types").SubtitleStyle;
+	onSubtitleStyleChange?: (style: Partial<import("./types").SubtitleStyle>) => void;
+	onSubtitleTextChange?: (id: string, text: string) => void;
+	onGenerateSubtitles?: () => void;
+	isGeneratingSubtitles?: boolean;
+	onClearSubtitles?: () => void;
 }
 
 export default SettingsPanel;
@@ -256,6 +266,15 @@ export function SettingsPanel({
 	selectedWebcamFocusShape,
 	onWebcamFocusShapeChange,
 	onWebcamFocusDelete,
+	subtitleRegions = [],
+	showSubtitles = true,
+	onShowSubtitlesChange,
+	subtitleStyle,
+	onSubtitleStyleChange,
+	onSubtitleTextChange,
+	onGenerateSubtitles,
+	isGeneratingSubtitles = false,
+	onClearSubtitles,
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
 	const [wallpaperPaths, setWallpaperPaths] = useState<string[]>([]);
@@ -1244,6 +1263,172 @@ export function SettingsPanel({
 									</TabsContent>
 								</div>
 							</Tabs>
+						</AccordionContent>
+					</AccordionItem>
+
+					<AccordionItem
+						value="subtitles"
+						className="border-white/5 rounded-xl bg-white/[0.02] px-3"
+					>
+						<AccordionTrigger className="py-2.5 hover:no-underline">
+							<div className="flex items-center gap-2">
+								<Subtitles className="w-4 h-4 text-[#34B27B]" />
+								<span className="text-xs font-medium">Subtitles</span>
+								{subtitleRegions.length > 0 && (
+									<span className="ml-auto text-[10px] text-[#34B27B] bg-[#34B27B]/10 px-1.5 py-0.5 rounded-full">
+										{subtitleRegions.length}
+									</span>
+								)}
+							</div>
+						</AccordionTrigger>
+						<AccordionContent className="pb-3">
+							<div className="space-y-3">
+								{/* Generate / Clear buttons */}
+								<div className="flex gap-1.5">
+									<Button
+										onClick={onGenerateSubtitles}
+										disabled={isGeneratingSubtitles}
+										variant="outline"
+										size="sm"
+										className="flex-1 gap-1.5 bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-300 text-xs h-7"
+									>
+										<Subtitles className="w-3 h-3" />
+										{isGeneratingSubtitles ? "Generating..." : "Auto-Generate"}
+									</Button>
+									{subtitleRegions.length > 0 && (
+										<Button
+											onClick={onClearSubtitles}
+											variant="outline"
+											size="sm"
+											className="gap-1.5 bg-red-500/10 border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 text-red-400 text-xs h-7 px-2"
+										>
+											<Trash2 className="w-3 h-3" />
+											Clear
+										</Button>
+									)}
+								</div>
+
+								{subtitleRegions.length === 0 && !isGeneratingSubtitles && (
+									<p className="text-[10px] text-slate-500 text-center">
+										Click Auto-Generate to create subtitles from your video audio using Whisper AI.
+									</p>
+								)}
+
+								{subtitleRegions.length > 0 && (
+									<>
+										{/* Show/hide toggle */}
+										<div className="flex items-center justify-between">
+											<span className="text-xs text-slate-300">Show subtitles</span>
+											<Switch
+												checked={showSubtitles}
+												onCheckedChange={onShowSubtitlesChange}
+											/>
+										</div>
+
+										{/* Template */}
+										<div>
+											<span className="text-xs text-slate-400 block mb-1.5">Template</span>
+											<Select
+												value={subtitleStyle?.template ?? "classic"}
+												onValueChange={(v) => onSubtitleStyleChange?.({ template: v as import("./types").SubtitleTemplate })}
+											>
+												<SelectTrigger className="h-7 text-xs bg-white/5 border-white/10 hover:bg-white/10 text-slate-300">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													{SUBTITLE_TEMPLATES.map(({ value, label }) => (
+														<SelectItem key={value} value={value} className="text-xs">
+															{label}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										</div>
+
+										{/* Font size */}
+										<div>
+											<div className="flex items-center justify-between mb-1.5">
+												<span className="text-xs text-slate-400">Font size</span>
+												<span className="text-[10px] text-slate-500">{subtitleStyle?.fontSize ?? 32}px</span>
+											</div>
+											<Slider
+												min={12}
+												max={80}
+												step={2}
+												value={[subtitleStyle?.fontSize ?? 32]}
+												onValueChange={([v]) => onSubtitleStyleChange?.({ fontSize: v })}
+												className="w-full"
+											/>
+										</div>
+
+										{/* Position toggle + offset slider */}
+										<div>
+											<div className="flex items-center justify-between mb-2">
+												<span className="text-xs text-slate-400">Position</span>
+												<div className="flex gap-1">
+													{(["bottom", "top"] as const).map((pos) => (
+														<Button
+															key={pos}
+															type="button"
+															onClick={() => onSubtitleStyleChange?.({ position: pos })}
+															size="sm"
+															className={cn(
+																"h-6 px-2 text-[10px] rounded-md border transition-all",
+																subtitleStyle?.position === pos
+																	? "border-[#34B27B] bg-[#34B27B] text-white"
+																	: "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10",
+															)}
+														>
+															{pos}
+														</Button>
+													))}
+												</div>
+											</div>
+											<div className="flex items-center justify-between mb-1.5">
+												<span className="text-xs text-slate-400">Offset</span>
+												<span className="text-[10px] text-slate-500">{subtitleStyle?.bottomOffset ?? 8}%</span>
+											</div>
+											<Slider
+												min={0}
+												max={45}
+												step={1}
+												value={[subtitleStyle?.bottomOffset ?? 8]}
+												onValueChange={([v]) => onSubtitleStyleChange?.({ bottomOffset: v })}
+												className="w-full"
+											/>
+										</div>
+
+										{/* Subtitle text list */}
+										<div>
+											<div className="flex items-center justify-between mb-1.5">
+												<span className="text-xs text-slate-400">
+													{subtitleRegions.length} subtitle{subtitleRegions.length !== 1 ? "s" : ""}
+												</span>
+											</div>
+											<div className="space-y-1.5 max-h-64 overflow-y-auto pr-0.5">
+												{subtitleRegions.map((sub) => {
+													const startSec = sub.startMs / 1000;
+													const mm = Math.floor(startSec / 60);
+													const ss = String(Math.floor(startSec % 60)).padStart(2, "0");
+													const ts = `${mm}:${ss}`;
+													return (
+														<div key={sub.id} className="group rounded-lg bg-white/[0.03] border border-white/5 p-2">
+															<div className="text-[10px] text-slate-600 mb-1 font-mono">{ts}</div>
+															<textarea
+																value={sub.text}
+																onChange={(e) => onSubtitleTextChange?.(sub.id, e.target.value)}
+																rows={2}
+																className="w-full bg-transparent text-[11px] text-slate-300 resize-none outline-none border-none leading-snug placeholder:text-slate-600"
+																spellCheck={false}
+															/>
+														</div>
+													);
+												})}
+											</div>
+										</div>
+									</>
+								)}
+							</div>
 						</AccordionContent>
 					</AccordionItem>
 				</Accordion>

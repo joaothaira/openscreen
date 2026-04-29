@@ -202,6 +202,56 @@ export interface CropRegion {
 	height: number;
 }
 
+export type SubtitleTemplate =
+	| "classic"
+	| "minimal"
+	| "bold"
+	| "boxed"
+	| "cinematic"
+	| "outline"
+	| "glow"
+	| "stacked"
+	| "highlight";
+
+export const SUBTITLE_TEMPLATES: { value: SubtitleTemplate; label: string }[] = [
+	{ value: "classic", label: "Classic" },
+	{ value: "minimal", label: "Minimal" },
+	{ value: "bold", label: "Bold" },
+	{ value: "boxed", label: "Boxed" },
+	{ value: "cinematic", label: "Cinematic" },
+	{ value: "outline", label: "Outline" },
+	{ value: "glow", label: "Glow" },
+	{ value: "stacked", label: "Stacked" },
+	{ value: "highlight", label: "Highlight" },
+];
+
+export interface SubtitleItem {
+	id: string;
+	startMs: number;
+	endMs: number;
+	text: string;
+}
+
+export interface SubtitleStyle {
+	fontSize: number;
+	fontColor: string;
+	backgroundColor: string;
+	position: "top" | "bottom";
+	bottomOffset: number; // percent from edge (0-100)
+	fontFamily: string;
+	template: SubtitleTemplate;
+}
+
+export const DEFAULT_SUBTITLE_STYLE: SubtitleStyle = {
+	fontSize: 32,
+	fontColor: "#ffffff",
+	backgroundColor: "rgba(0,0,0,0.7)",
+	position: "bottom",
+	bottomOffset: 8,
+	fontFamily: "Inter, Arial, sans-serif",
+	template: "classic",
+};
+
 export const DEFAULT_CROP_REGION: CropRegion = {
 	x: 0,
 	y: 0,

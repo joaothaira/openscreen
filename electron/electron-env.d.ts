@@ -137,6 +137,14 @@ interface Window {
 		setHasUnsavedChanges: (hasChanges: boolean) => void;
 		onRequestSaveBeforeClose: (callback: () => Promise<boolean> | boolean) => () => void;
 		setLocale: (locale: string) => Promise<void>;
+		generateSubtitles: (
+			videoPath: string,
+			lang?: string,
+		) => Promise<{
+			success: boolean;
+			subtitles?: Array<{ id: string; startMs: number; endMs: number; text: string }>;
+			error?: string;
+		}>;
 	};
 }
 

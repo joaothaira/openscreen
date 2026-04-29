@@ -12,6 +12,8 @@ import type {
 	AnnotationRegion,
 	CropRegion,
 	SpeedRegion,
+	SubtitleItem,
+	SubtitleStyle,
 	WebcamFocusRegion,
 	WebcamLayoutPreset,
 	ZoomDepth,
@@ -78,6 +80,9 @@ interface FrameRenderConfig {
 	previewWidth?: number;
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
+	subtitleRegions?: SubtitleItem[];
+	showSubtitles?: boolean;
+	subtitleStyle?: SubtitleStyle;
 }
 
 interface AnimationState {
@@ -422,6 +427,27 @@ export class FrameRenderer {
 				timeMs,
 				scaleFactor,
 			);
+		}
+
+		// Render subtitles on top
+		if (
+			this.config.showSubtitles &&
+			this.config.subtitleRegions &&
+			this.config.subtitleRegions.length > 0 &&
+			this.compositeCtx
+		) {
+			const active = this.config.subtitleRegions.find(
+				(s) => timeMs >= s.startMs && timeMs <= s.endMs,
+			);
+			if (active) {
+				renderSubtitle(
+					this.compositeCtx,
+					active.text,
+					this.config.width,
+					this.config.height,
+					this.config.subtitleStyle,
+				);
+			}
 		}
 	}
 
@@ -905,4 +931,195 @@ export class FrameRenderer {
 		this.compositeCanvas = null;
 		this.compositeCtx = null;
 	}
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+	const words = text.split(" ");
+	const lines: string[] = [];
+	let line = "";
+	for (const word of words) {
+		const test = line ? `${line} ${word}` : word;
+		if (ctx.measureText(test).width > maxWidth && line) {
+			lines.push(line);
+			line = word;
+		} else {
+			line = test;
+		}
+	}
+	if (line) lines.push(line);
+	return lines;
+}
+
+function renderSubtitle(
+	ctx: CanvasRenderingContext2D,
+	text: string,
+	canvasWidth: number,
+	canvasHeight: number,
+	style?: SubtitleStyle,
+) {
+	const template = style?.template ?? "classic";
+	const fontSize = style?.fontSize ?? 32;
+	const fontColor = style?.fontColor ?? "#ffffff";
+	const bgColor = style?.backgroundColor ?? "rgba(0,0,0,0.7)";
+	const isBottom = !style || style.position !== "top";
+	const offsetFraction = (style?.bottomOffset ?? 8) / 100;
+	const fontFamily = style?.fontFamily ?? "Inter, Arial, sans-serif";
+
+	const scaledFontSize = Math.round(fontSize * (canvasWidth / 1920));
+	const offsetPx = canvasHeight * offsetFraction;
+	const maxWidth = canvasWidth * 0.85;
+
+	ctx.save();
+	ctx.textBaseline = "middle";
+	ctx.textAlign = "center";
+
+	if (template === "minimal") {
+		const fontStr = `600 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, text, maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const blockH = lines.length * lineH;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.shadowColor = "rgba(0,0,0,0.8)";
+		ctx.shadowBlur = 10;
+		ctx.shadowOffsetY = 2;
+		ctx.fillStyle = fontColor;
+		lines.forEach((l, i) => {
+			ctx.fillText(l, canvasWidth / 2, blockY + scaledFontSize * 0.7 + i * lineH);
+		});
+	} else if (template === "bold") {
+		const upperText = text.toUpperCase();
+		const fontStr = `900 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, upperText, maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const blockH = lines.length * lineH;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.shadowColor = "rgba(0,0,0,0.9)";
+		ctx.shadowBlur = 20;
+		ctx.shadowOffsetY = 4;
+		ctx.fillStyle = fontColor;
+		lines.forEach((l, i) => {
+			ctx.fillText(l, canvasWidth / 2, blockY + scaledFontSize * 0.7 + i * lineH);
+		});
+	} else if (template === "boxed") {
+		const paddingV = Math.round(scaledFontSize * 0.3);
+		const fontStr = `700 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, text, maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const blockH = lines.length * lineH + paddingV * 2;
+		const blockW = canvasWidth * 0.9;
+		const blockX = (canvasWidth - blockW) / 2;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.fillStyle = "rgba(0,0,0,0.9)";
+		ctx.fillRect(blockX, blockY, blockW, blockH);
+		ctx.fillStyle = fontColor;
+		lines.forEach((l, i) => {
+			ctx.fillText(l, canvasWidth / 2, blockY + paddingV + scaledFontSize * 0.7 + i * lineH);
+		});
+	} else if (template === "cinematic") {
+		const fontStr = `500 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, text.toUpperCase(), maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const gapPx = Math.round(scaledFontSize * 0.3);
+		const lineThickPx = Math.max(1, Math.round(scaledFontSize * 0.05));
+		const lineWidthPx = Math.round(canvasWidth * 0.08);
+		const blockH = lineThickPx + gapPx + lines.length * lineH;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.fillStyle = fontColor;
+		ctx.globalAlpha = 0.6;
+		ctx.fillRect((canvasWidth - lineWidthPx) / 2, blockY, lineWidthPx, lineThickPx);
+		ctx.globalAlpha = 1;
+		ctx.fillStyle = fontColor;
+		lines.forEach((l, i) => {
+			ctx.fillText(l, canvasWidth / 2, blockY + lineThickPx + gapPx + scaledFontSize * 0.7 + i * lineH);
+		});
+	} else if (template === "outline") {
+		const fontStr = `900 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, text.toUpperCase(), maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const blockH = lines.length * lineH;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.shadowColor = "rgba(0,0,0,0.6)";
+		ctx.shadowBlur = 20;
+		ctx.shadowOffsetY = 4;
+		ctx.strokeStyle = fontColor;
+		ctx.lineWidth = Math.max(1, scaledFontSize * 0.04);
+		lines.forEach((l, i) => {
+			ctx.strokeText(l, canvasWidth / 2, blockY + scaledFontSize * 0.7 + i * lineH);
+		});
+	} else if (template === "glow") {
+		const fontStr = `800 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, text, maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const blockH = lines.length * lineH;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.shadowColor = "rgba(255,255,255,0.8)";
+		ctx.shadowBlur = 40;
+		ctx.fillStyle = fontColor;
+		for (let g = 0; g < 3; g++) {
+			lines.forEach((l, i) => {
+				ctx.fillText(l, canvasWidth / 2, blockY + scaledFontSize * 0.7 + i * lineH);
+			});
+		}
+	} else if (template === "stacked") {
+		const stackWords = text.toUpperCase().split(" ");
+		const lineH = scaledFontSize * 1.1;
+		const blockH = stackWords.length * lineH;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.shadowColor = "rgba(0,0,0,0.8)";
+		ctx.shadowBlur = 12;
+		ctx.fillStyle = fontColor;
+		stackWords.forEach((word, i) => {
+			ctx.font = `800 ${scaledFontSize}px ${fontFamily}`;
+			ctx.fillText(word, canvasWidth / 2, blockY + scaledFontSize * 0.7 + i * lineH);
+		});
+	} else if (template === "highlight") {
+		const paddingH = Math.round(scaledFontSize * 0.5);
+		const paddingV = Math.round(scaledFontSize * 0.25);
+		const radius = Math.round(scaledFontSize * 0.2);
+		const fontStr = `700 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, text, maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const blockH = lines.length * lineH + paddingV * 2;
+		const blockW = Math.max(...lines.map((l) => ctx.measureText(l).width)) + paddingH * 2;
+		const blockX = (canvasWidth - blockW) / 2;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.fillStyle = bgColor;
+		ctx.beginPath();
+		ctx.roundRect(blockX, blockY, blockW, blockH, radius);
+		ctx.fill();
+		ctx.fillStyle = "#FFD700";
+		lines.forEach((l, i) => {
+			ctx.fillText(l, canvasWidth / 2, blockY + paddingV + scaledFontSize * 0.7 + i * lineH);
+		});
+	} else {
+		// classic
+		const paddingH = Math.round(scaledFontSize * 0.5);
+		const paddingV = Math.round(scaledFontSize * 0.25);
+		const radius = Math.round(scaledFontSize * 0.2);
+		const fontStr = `600 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, text, maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const blockH = lines.length * lineH + paddingV * 2;
+		const blockW = Math.max(...lines.map((l) => ctx.measureText(l).width)) + paddingH * 2;
+		const blockX = (canvasWidth - blockW) / 2;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.fillStyle = bgColor;
+		ctx.beginPath();
+		ctx.roundRect(blockX, blockY, blockW, blockH, radius);
+		ctx.fill();
+		ctx.fillStyle = fontColor;
+		lines.forEach((l, i) => {
+			ctx.fillText(l, canvasWidth / 2, blockY + paddingV + scaledFontSize * 0.7 + i * lineH);
+		});
+	}
+
+	ctx.restore();
 }

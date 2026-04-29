@@ -112,6 +112,9 @@ export default function VideoEditor() {
 		webcamCornerPreset,
 		webcamStackPosition,
 		webcamSegments,
+		subtitleRegions,
+		showSubtitles,
+		subtitleStyle,
 	} = editorState;
 
 	const hasWebcam = webcamSegments.length > 0;
@@ -149,6 +152,7 @@ export default function VideoEditor() {
 		format: string;
 	} | null>(null);
 	const [isFullscreen, setIsFullscreen] = useState(false);
+	const [isGeneratingSubtitles, setIsGeneratingSubtitles] = useState(false);
 
 	const playerContainerRef = useRef<HTMLDivElement>(null);
 	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
@@ -241,6 +245,9 @@ export default function VideoEditor() {
 				webcamCornerPreset: normalizedEditor.webcamCornerPreset,
 				webcamStackPosition: normalizedEditor.webcamStackPosition,
 				webcamSegments,
+				subtitleRegions: normalizedEditor.subtitleRegions,
+				showSubtitles: normalizedEditor.showSubtitles,
+				subtitleStyle: normalizedEditor.subtitleStyle,
 			});
 			setExportQuality(normalizedEditor.exportQuality);
 			setExportFormat(normalizedEditor.exportFormat);
@@ -320,6 +327,9 @@ export default function VideoEditor() {
 				gifFrameRate,
 				gifLoop,
 				gifSizePreset,
+				subtitleRegions,
+				showSubtitles,
+				subtitleStyle,
 			}),
 		);
 	}, [
@@ -349,6 +359,9 @@ export default function VideoEditor() {
 		gifFrameRate,
 		gifLoop,
 		gifSizePreset,
+		subtitleRegions,
+		showSubtitles,
+		subtitleStyle,
 	]);
 
 	const hasUnsavedChanges = Boolean(
@@ -456,6 +469,9 @@ export default function VideoEditor() {
 				gifFrameRate,
 				gifLoop,
 				gifSizePreset,
+				subtitleRegions,
+				showSubtitles,
+				subtitleStyle,
 			});
 
 			const fileNameBase =
@@ -516,6 +532,9 @@ export default function VideoEditor() {
 			gifFrameRate,
 			gifLoop,
 			gifSizePreset,
+			subtitleRegions,
+			showSubtitles,
+			subtitleStyle,
 			videoPath,
 			t,
 		],
@@ -1113,6 +1132,12 @@ export default function VideoEditor() {
 					} else if (captionData.gradientDirection === "right") {
 						updated.position = { x: 50, y: 0 };
 						updated.size = { width: 50, height: 100 };
+					} else if (captionData.gradientDirection === "top") {
+						updated.position = { x: 0, y: 0 };
+						updated.size = { width: 100, height: 33 };
+					} else if (captionData.gradientDirection === "bottom") {
+						updated.position = { x: 0, y: 67 };
+						updated.size = { width: 100, height: 33 };
 					} else {
 						updated.position = { x: 0, y: 0 };
 						updated.size = { width: 100, height: 100 };
@@ -1238,6 +1263,49 @@ export default function VideoEditor() {
 		}
 	}, [selectedWebcamSegmentId, webcamSegments]);
 
+	const handleGenerateSubtitles = useCallback(async () => {
+		if (!videoSourcePath) {
+			toast.error("No video loaded");
+			return;
+		}
+		setIsGeneratingSubtitles(true);
+		try {
+			const result = await window.electronAPI.generateSubtitles(videoSourcePath);
+			if (result.success && result.subtitles) {
+				pushState({ subtitleRegions: result.subtitles, showSubtitles: true });
+				toast.success(`Generated ${result.subtitles.length} subtitles`);
+			} else {
+				toast.error(result.error ?? "Subtitle generation failed");
+			}
+		} catch (err) {
+			toast.error("Subtitle generation failed: " + String(err));
+		} finally {
+			setIsGeneratingSubtitles(false);
+		}
+	}, [videoSourcePath, pushState]);
+
+	const handleClearSubtitles = useCallback(() => {
+		pushState({ subtitleRegions: [] });
+	}, [pushState]);
+
+	const handleSubtitleTextChange = useCallback(
+		(id: string, text: string) => {
+			pushState((prev) => ({
+				subtitleRegions: prev.subtitleRegions.map((s) =>
+					s.id === id ? { ...s, text } : s,
+				),
+			}));
+		},
+		[pushState],
+	);
+
+	const handleSubtitleStyleChange = useCallback(
+		(style: Partial<import("./types").SubtitleStyle>) => {
+			pushState((prev) => ({ subtitleStyle: { ...prev.subtitleStyle, ...style } }));
+		},
+		[pushState],
+	);
+
 	const handleShowExportedFile = useCallback(async (filePath: string) => {
 		try {
 			const result = await window.electronAPI.revealInFolder(filePath);
@@ -1360,6 +1428,9 @@ export default function VideoEditor() {
 						previewWidth,
 						previewHeight,
 						cursorTelemetry,
+						subtitleRegions,
+						showSubtitles,
+						subtitleStyle,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -1497,6 +1568,9 @@ export default function VideoEditor() {
 						previewWidth,
 						previewHeight,
 						cursorTelemetry,
+						subtitleRegions,
+						showSubtitles,
+						subtitleStyle,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -1785,7 +1859,10 @@ export default function VideoEditor() {
 											onAnnotationPositionChange={handleAnnotationPositionChange}
 											onAnnotationSizeChange={handleAnnotationSizeChange}
 											cursorTelemetry={cursorTelemetry}
-										/>
+										subtitleRegions={subtitleRegions}
+										showSubtitles={showSubtitles}
+										subtitleStyle={subtitleStyle}
+									/>
 									</div>
 								</div>
 								{/* Playback controls */}
@@ -1980,6 +2057,15 @@ export default function VideoEditor() {
 						onSpeedDelete={handleSpeedDelete}
 						unsavedExport={unsavedExport}
 						onSaveUnsavedExport={handleSaveUnsavedExport}
+						subtitleRegions={subtitleRegions}
+						showSubtitles={showSubtitles}
+						onShowSubtitlesChange={(v) => pushState({ showSubtitles: v })}
+						subtitleStyle={subtitleStyle}
+						onSubtitleStyleChange={handleSubtitleStyleChange}
+						onSubtitleTextChange={handleSubtitleTextChange}
+						onGenerateSubtitles={handleGenerateSubtitles}
+						isGeneratingSubtitles={isGeneratingSubtitles}
+						onClearSubtitles={handleClearSubtitles}
 					/>
 				</div>
 			</div>

@@ -3,6 +3,8 @@ import type {
 	AnnotationRegion,
 	CropRegion,
 	SpeedRegion,
+	SubtitleItem,
+	SubtitleStyle,
 	TrimRegion,
 	WebcamFocusRegion,
 	WebcamLayoutPreset,
@@ -54,6 +56,9 @@ interface GifExporterConfig {
 	previewWidth?: number;
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
+	subtitleRegions?: SubtitleItem[];
+	showSubtitles?: boolean;
+	subtitleStyle?: SubtitleStyle;
 	onProgress?: (progress: ExportProgress) => void;
 }
 
@@ -163,6 +168,9 @@ export class GifExporter {
 				webcamCornerPreset: this.config.webcamCornerPreset,
 				webcamStackPosition: this.config.webcamStackPosition,
 				annotationRegions: this.config.annotationRegions,
+				subtitleRegions: this.config.subtitleRegions,
+				showSubtitles: this.config.showSubtitles,
+				subtitleStyle: this.config.subtitleStyle,
 				speedRegions: this.config.speedRegions,
 				webcamFocusRegions: this.config.webcamFocusRegions,
 				previewWidth: this.config.previewWidth,
