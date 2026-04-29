@@ -77,6 +77,7 @@ interface VideoPlaybackProps {
 	webcamCornerPreset?: import("./types").WebcamCornerPreset | null;
 	webcamStackPosition?: import("./types").WebcamStackPosition | null;
 	webcamFocusRegions?: import("./types").WebcamFocusRegion[];
+	webcamFocusZoom?: number;
 	onWebcamPositionChange?: (position: { cx: number; cy: number }) => void;
 	onWebcamPositionDragEnd?: () => void;
 	onDurationChange: (duration: number) => void;
@@ -134,6 +135,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			webcamCornerPreset,
 			webcamStackPosition,
 			webcamFocusRegions = [],
+			webcamFocusZoom = 1,
 			onWebcamPositionChange,
 			onWebcamPositionDragEnd,
 			onDurationChange,
@@ -1086,11 +1088,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			const { width: stageW, height: stageH } = stageSizeRef.current;
 			if (!stageW || !stageH) return null;
 			if (webcamLayoutPreset === "vertical-stack") {
+				const t = (a: number, b: number) => a + (b - a) * webcamFocusZoom;
 				return {
-					x: 0,
-					y: 0,
-					width: stageW,
-					height: stageH,
+					x: Math.round(t(webcamLayout.x, 0)),
+					y: Math.round(t(webcamLayout.y, 0)),
+					width: Math.round(t(webcamLayout.width, stageW)),
+					height: Math.round(t(webcamLayout.height, stageH)),
 					borderRadius: 0,
 					maskShape: webcamLayout.maskShape,
 				};
@@ -1116,7 +1119,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				maskShape: focusShape ?? webcamLayout.maskShape,
 			};
 			// eslint-disable-next-line react-hooks/exhaustive-deps
-		}, [webcamDimensions, webcamLayout, activeFocusRegion, webcamMaskShape, webcamLayoutPreset]);
+		}, [webcamDimensions, webcamLayout, activeFocusRegion, webcamMaskShape, webcamLayoutPreset, webcamFocusZoom]);
 
 		useEffect(() => {
 			const webcamVideo = webcamVideoRef.current;

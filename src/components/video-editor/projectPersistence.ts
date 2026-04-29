@@ -65,6 +65,7 @@ export interface ProjectEditorState {
 	webcamPosition: WebcamPosition | null;
 	webcamCornerPreset: WebcamCornerPreset | null;
 	webcamStackPosition: WebcamStackPosition;
+	webcamFocusZoom: number; // 0 = stays in stack band, 1 = fills full canvas
 	webcamSegments: WebcamSegment[];
 	exportQuality: ExportQuality;
 	exportFormat: ExportFormat;
@@ -469,6 +470,12 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			editor.webcamStackPosition === "top" || editor.webcamStackPosition === "bottom"
 				? editor.webcamStackPosition
 				: DEFAULT_WEBCAM_STACK_POSITION,
+		webcamFocusZoom:
+			isFiniteNumber((editor as ProjectEditorState).webcamFocusZoom) &&
+			(editor as ProjectEditorState).webcamFocusZoom >= 0 &&
+			(editor as ProjectEditorState).webcamFocusZoom <= 1
+				? (editor as ProjectEditorState).webcamFocusZoom
+				: 1,
 		webcamSegments: Array.isArray(editor.webcamSegments)
 			? editor.webcamSegments.filter(
 					(seg): seg is WebcamSegment =>

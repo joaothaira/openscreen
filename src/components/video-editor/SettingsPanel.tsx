@@ -145,6 +145,9 @@ interface SettingsPanelProps {
 	onAnnotationContentChange?: (id: string, content: string) => void;
 	onAnnotationTypeChange?: (id: string, type: AnnotationType) => void;
 	onAnnotationStyleChange?: (id: string, style: Partial<AnnotationRegion["style"]>) => void;
+	onAnnotationPositionChange?: (id: string, position: { x: number; y: number }) => void;
+	onAnnotationSizeChange?: (id: string, size: { width: number; height: number }) => void;
+	onAnnotationImageDataChange?: (id: string, imageData: import("./types").ImageData) => void;
 	onAnnotationFigureDataChange?: (id: string, figureData: FigureData) => void;
 	onAnnotationCaptionDataChange?: (id: string, captionData: CaptionData) => void;
 	onAnnotationMarkerDataChange?: (id: string, markerData: MarkerData) => void;
@@ -160,6 +163,8 @@ interface SettingsPanelProps {
 	onWebcamCornerPresetChange?: (preset: WebcamCornerPreset) => void;
 	webcamStackPosition?: WebcamStackPosition;
 	onWebcamStackPositionChange?: (pos: WebcamStackPosition) => void;
+	webcamFocusZoom?: number;
+	onWebcamFocusZoomChange?: (zoom: number) => void;
 	webcamLayoutPreset?: WebcamLayoutPreset;
 	onWebcamLayoutPresetChange?: (preset: WebcamLayoutPreset) => void;
 	webcamMaskShape?: WebcamMaskShape;
@@ -170,6 +175,8 @@ interface SettingsPanelProps {
 	selectedWebcamFocusShape?: WebcamMaskShape;
 	onWebcamFocusShapeChange?: (shape: WebcamMaskShape) => void;
 	onWebcamFocusDelete?: (id: string) => void;
+	webcamSyncOffsetMs?: number;
+	onWebcamSyncOffsetMsChange?: (ms: number) => void;
 	subtitleRegions?: import("./types").SubtitleItem[];
 	showSubtitles?: boolean;
 	onShowSubtitlesChange?: (show: boolean) => void;
@@ -241,6 +248,9 @@ export function SettingsPanel({
 	onAnnotationContentChange,
 	onAnnotationTypeChange,
 	onAnnotationStyleChange,
+	onAnnotationPositionChange,
+	onAnnotationSizeChange,
+	onAnnotationImageDataChange,
 	onAnnotationFigureDataChange,
 	onAnnotationCaptionDataChange,
 	onAnnotationMarkerDataChange,
@@ -252,10 +262,14 @@ export function SettingsPanel({
 	hasWebcam = false,
 	onAddWebcamVideo,
 	onRemoveWebcamVideo,
+	webcamSyncOffsetMs = 0,
+	onWebcamSyncOffsetMsChange,
 	webcamCornerPreset = null,
 	onWebcamCornerPresetChange,
 	webcamStackPosition = "bottom",
 	onWebcamStackPositionChange,
+	webcamFocusZoom = 1,
+	onWebcamFocusZoomChange,
 	webcamLayoutPreset = "picture-in-picture",
 	onWebcamLayoutPresetChange,
 	webcamMaskShape = "rectangle",
@@ -513,6 +527,21 @@ export function SettingsPanel({
 				onContentChange={(content) => onAnnotationContentChange(selectedAnnotation.id, content)}
 				onTypeChange={(type) => onAnnotationTypeChange(selectedAnnotation.id, type)}
 				onStyleChange={(style) => onAnnotationStyleChange(selectedAnnotation.id, style)}
+				onPositionChange={
+					onAnnotationPositionChange
+						? (pos) => onAnnotationPositionChange(selectedAnnotation.id, pos)
+						: undefined
+				}
+				onSizeChange={
+					onAnnotationSizeChange
+						? (size) => onAnnotationSizeChange(selectedAnnotation.id, size)
+						: undefined
+				}
+				onImageDataChange={
+					onAnnotationImageDataChange
+						? (imageData) => onAnnotationImageDataChange(selectedAnnotation.id, imageData)
+						: undefined
+				}
 				onFigureDataChange={
 					onAnnotationFigureDataChange
 						? (figureData) => onAnnotationFigureDataChange(selectedAnnotation.id, figureData)
@@ -816,6 +845,22 @@ export function SettingsPanel({
 											</div>
 										)}
 									</div>
+									{webcamLayoutPreset === "vertical-stack" && (
+										<div className="mt-2 pt-2 border-t border-white/5">
+											<div className="flex items-center justify-between mb-1.5">
+												<span className="text-[10px] font-medium text-slate-300">Focus zoom</span>
+												<span className="text-[10px] text-slate-500">{Math.round(webcamFocusZoom * 100)}%</span>
+											</div>
+											<Slider
+												min={0}
+												max={1}
+												step={0.05}
+												value={[webcamFocusZoom]}
+												onValueChange={([v]) => onWebcamFocusZoomChange?.(v)}
+												className="w-full"
+											/>
+										</div>
+									)}
 									{webcamLayoutPreset === "picture-in-picture" && (
 										<div className="mt-2 p-2 rounded-lg bg-white/5 border border-white/5">
 											<div className="text-[10px] font-medium text-slate-300 mb-1.5">
@@ -985,6 +1030,26 @@ export function SettingsPanel({
 											)}
 										</div>
 									)}
+									{/* Webcam sync offset */}
+									<div className="mt-2 pt-2 border-t border-white/5">
+										<div className="flex items-center justify-between mb-1.5">
+											<span className="text-[10px] font-medium text-slate-300">Sync offset</span>
+											<span className="text-[10px] text-slate-500">
+												{webcamSyncOffsetMs > 0 ? `+${webcamSyncOffsetMs}` : webcamSyncOffsetMs}ms
+											</span>
+										</div>
+										<Slider
+											min={-2000}
+											max={2000}
+											step={50}
+											value={[webcamSyncOffsetMs]}
+											onValueChange={([v]) => onWebcamSyncOffsetMsChange?.(v)}
+											className="w-full"
+										/>
+										<p className="text-[9px] text-slate-600 mt-1">
+											Applied to new recordings. Positive = webcam starts later.
+										</p>
+									</div>
 								</>
 							)}
 						</AccordionContent>

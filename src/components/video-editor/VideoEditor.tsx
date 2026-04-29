@@ -54,6 +54,7 @@ import {
 	DEFAULT_PLAYBACK_SPEED,
 	DEFAULT_ZOOM_DEPTH,
 	type FigureData,
+	type ImageData,
 	type MarkerData,
 	type PlaybackSpeed,
 	type SpeedRegion,
@@ -111,6 +112,7 @@ export default function VideoEditor() {
 		webcamPosition,
 		webcamCornerPreset,
 		webcamStackPosition,
+		webcamFocusZoom,
 		webcamSegments,
 		subtitleRegions,
 		showSubtitles,
@@ -153,6 +155,11 @@ export default function VideoEditor() {
 	} | null>(null);
 	const [isFullscreen, setIsFullscreen] = useState(false);
 	const [isGeneratingSubtitles, setIsGeneratingSubtitles] = useState(false);
+	const [webcamSyncOffsetMs, setWebcamSyncOffsetMs] = useState<number>(() => {
+		const stored = localStorage.getItem("openscreen:webcamSyncOffsetMs");
+		const parsed = stored ? parseInt(stored, 10) : 0;
+		return Number.isFinite(parsed) ? parsed : 0;
+	});
 
 	const playerContainerRef = useRef<HTMLDivElement>(null);
 	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
@@ -204,7 +211,7 @@ export default function VideoEditor() {
 						id: "webcam-1",
 						videoPath: toFileUrl(webcamSourcePath),
 						sourcePath: webcamSourcePath,
-						startMs: 0,
+						startMs: webcamSyncOffsetMs,
 						durationMs,
 					},
 				];
@@ -321,6 +328,7 @@ export default function VideoEditor() {
 				webcamPosition,
 				webcamCornerPreset,
 				webcamStackPosition,
+				webcamFocusZoom,
 				webcamSegments,
 				exportQuality,
 				exportFormat,
@@ -402,7 +410,7 @@ export default function VideoEditor() {
 									id: `webcam-${nextWebcamSegmentIdRef.current++}`,
 									videoPath: toFileUrl(webcamSourcePath),
 									sourcePath: webcamSourcePath,
-									startMs: 0,
+									startMs: webcamSyncOffsetMs,
 									durationMs,
 								},
 							],
@@ -463,6 +471,7 @@ export default function VideoEditor() {
 				webcamPosition,
 				webcamCornerPreset,
 				webcamStackPosition,
+				webcamFocusZoom,
 				webcamSegments,
 				exportQuality,
 				exportFormat,
@@ -577,6 +586,11 @@ export default function VideoEditor() {
 	const handleRemoveWebcamVideo = useCallback(() => {
 		pushState({ webcamSegments: [] });
 	}, [pushState]);
+
+	const handleWebcamSyncOffsetChange = useCallback((ms: number) => {
+		setWebcamSyncOffsetMs(ms);
+		localStorage.setItem("openscreen:webcamSyncOffsetMs", String(ms));
+	}, []);
 
 	const handleLoadProject = useCallback(async () => {
 		const result = await window.electronAPI.loadProjectFile();
@@ -1149,6 +1163,17 @@ export default function VideoEditor() {
 		[pushState],
 	);
 
+	const handleAnnotationImageDataChange = useCallback(
+		(id: string, imageData: ImageData) => {
+			pushState((prev) => ({
+				annotationRegions: prev.annotationRegions.map((region) =>
+					region.id === id ? { ...region, imageData } : region,
+				),
+			}));
+		},
+		[pushState],
+	);
+
 	const handleAnnotationFigureDataChange = useCallback(
 		(id: string, figureData: FigureData) => {
 			pushState((prev) => ({
@@ -1424,6 +1449,7 @@ export default function VideoEditor() {
 						webcamPosition,
 						webcamCornerPreset,
 						webcamStackPosition,
+						webcamFocusZoom,
 						webcamFocusRegions: hasWebcam ? webcamFocusRegions : undefined,
 						previewWidth,
 						previewHeight,
@@ -1564,6 +1590,7 @@ export default function VideoEditor() {
 						webcamPosition,
 						webcamCornerPreset,
 						webcamStackPosition,
+						webcamFocusZoom,
 						webcamFocusRegions: hasWebcam ? webcamFocusRegions : undefined,
 						previewWidth,
 						previewHeight,
@@ -1829,6 +1856,7 @@ export default function VideoEditor() {
 											webcamPosition={webcamPosition}
 											webcamCornerPreset={webcamCornerPreset}
 											webcamStackPosition={webcamStackPosition}
+											webcamFocusZoom={webcamFocusZoom}
 											webcamFocusRegions={hasWebcam ? webcamFocusRegions : undefined}
 											onWebcamPositionChange={(pos) => updateState({ webcamPosition: pos, webcamCornerPreset: null })}
 											onWebcamPositionDragEnd={commitState}
@@ -1987,6 +2015,8 @@ export default function VideoEditor() {
 						hasWebcam={hasWebcam}
 						onAddWebcamVideo={handleAddWebcamVideo}
 						onRemoveWebcamVideo={handleRemoveWebcamVideo}
+						webcamSyncOffsetMs={webcamSyncOffsetMs}
+						onWebcamSyncOffsetMsChange={handleWebcamSyncOffsetChange}
 						webcamLayoutPreset={webcamLayoutPreset}
 						onWebcamLayoutPresetChange={(preset) =>
 							pushState({
@@ -2000,6 +2030,8 @@ export default function VideoEditor() {
 						}
 						webcamStackPosition={webcamStackPosition}
 						onWebcamStackPositionChange={(pos) => pushState({ webcamStackPosition: pos })}
+						webcamFocusZoom={webcamFocusZoom}
+						onWebcamFocusZoomChange={(zoom) => pushState({ webcamFocusZoom: zoom })}
 						webcamMaskShape={webcamMaskShape}
 						onWebcamMaskShapeChange={(shape) => pushState({ webcamMaskShape: shape })}
 						webcamSizePreset={webcamSizePreset}
@@ -2043,6 +2075,9 @@ export default function VideoEditor() {
 						onAnnotationContentChange={handleAnnotationContentChange}
 						onAnnotationTypeChange={handleAnnotationTypeChange}
 						onAnnotationStyleChange={handleAnnotationStyleChange}
+						onAnnotationPositionChange={handleAnnotationPositionChange}
+						onAnnotationSizeChange={handleAnnotationSizeChange}
+						onAnnotationImageDataChange={handleAnnotationImageDataChange}
 						onAnnotationFigureDataChange={handleAnnotationFigureDataChange}
 						onAnnotationCaptionDataChange={handleAnnotationCaptionDataChange}
 						onAnnotationMarkerDataChange={handleAnnotationMarkerDataChange}

@@ -49,6 +49,7 @@ export interface EditorState {
 	webcamPosition: WebcamPosition | null;
 	webcamCornerPreset: WebcamCornerPreset | null;
 	webcamStackPosition: WebcamStackPosition;
+	webcamFocusZoom: number;
 	webcamSegments: WebcamSegment[];
 	subtitleRegions: SubtitleItem[];
 	showSubtitles: boolean;
@@ -75,6 +76,7 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	webcamPosition: DEFAULT_WEBCAM_POSITION,
 	webcamCornerPreset: null,
 	webcamStackPosition: DEFAULT_WEBCAM_STACK_POSITION,
+	webcamFocusZoom: 1,
 	webcamSegments: [],
 	subtitleRegions: [],
 	showSubtitles: true,

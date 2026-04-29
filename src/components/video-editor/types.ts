@@ -116,6 +116,7 @@ export interface AnnotationTextStyle {
 	fontStyle: "normal" | "italic";
 	textDecoration: "none" | "underline";
 	textAlign: "left" | "center" | "right";
+	borderRadius?: number; // pixels, used for image annotations
 }
 
 export interface AnnotationRegion {
@@ -133,6 +134,7 @@ export interface AnnotationRegion {
 	figureData?: FigureData;
 	captionData?: CaptionData;
 	markerData?: MarkerData;
+	imageData?: ImageData;
 }
 
 export const DEFAULT_ANNOTATION_POSITION: AnnotationPosition = {
@@ -171,6 +173,27 @@ export interface MarkerData {
 	animationDuration: number; // ms for the slide-in sweep
 	direction: MarkerDirection;
 }
+
+export type ImageAnimationType =
+	| "none"
+	| "fade"
+	| "slide-up"
+	| "slide-down"
+	| "slide-left"
+	| "slide-right"
+	| "zoom";
+
+export interface ImageData {
+	animationType: ImageAnimationType;
+	animationDuration: number; // ms
+	fadeOut?: boolean;
+}
+
+export const DEFAULT_IMAGE_DATA: ImageData = {
+	animationType: "none",
+	animationDuration: 500,
+	fadeOut: false,
+};
 
 export const DEFAULT_MARKER_DATA: MarkerData = {
 	color: "#FFE000",

@@ -271,15 +271,51 @@ export function AnnotationOverlay({
 					</div>
 				);
 
-			case "image":
+			case "image": {
+				const radius = annotation.style.borderRadius ?? 0;
+				const imgData = annotation.imageData;
+				const timeIntoAnnotation = currentTimeMs - annotation.startMs;
+				const totalDuration = annotation.endMs - annotation.startMs;
+				const animDuration = imgData?.animationDuration ?? 500;
+
+				// entrance
+				const rawProgress = Math.min(1, Math.max(0, timeIntoAnnotation / animDuration));
+				const p = 1 - Math.pow(1 - rawProgress, 3);
+
+				// fade-out
+				const fadeOutStart = Math.max(0, totalDuration - animDuration);
+				const exitRaw = imgData?.fadeOut
+					? Math.min(1, Math.max(0, (timeIntoAnnotation - fadeOutStart) / animDuration))
+					: 0;
+				const exitOpacity = imgData?.fadeOut ? 1 - exitRaw : 1;
+
+				let animOpacity = exitOpacity;
+				let animTransform = "none";
+				const animType = imgData?.animationType ?? "none";
+				if (animType !== "none" && rawProgress < 1) {
+					animOpacity = p * exitOpacity;
+					if (animType === "slide-up") animTransform = `translateY(${(1 - p) * 50}%)`;
+					else if (animType === "slide-down") animTransform = `translateY(${-(1 - p) * 50}%)`;
+					else if (animType === "slide-left") animTransform = `translateX(${(1 - p) * 50}%)`;
+					else if (animType === "slide-right") animTransform = `translateX(${-(1 - p) * 50}%)`;
+					else if (animType === "zoom") animTransform = `scale(${0.75 + 0.25 * p})`;
+				}
+
 				if (annotation.content && annotation.content.startsWith("data:image")) {
 					return (
-						<img
-							src={annotation.content}
-							alt="Annotation"
-							className="w-full h-full object-contain"
-							draggable={false}
-						/>
+						<div
+							className="w-full h-full overflow-hidden"
+							style={{ borderRadius: radius > 0 ? `${radius}px` : undefined, opacity: animOpacity }}
+						>
+							<div className="w-full h-full" style={{ transform: animTransform, transformOrigin: "center" }}>
+								<img
+									src={annotation.content}
+									alt="Annotation"
+									className="w-full h-full object-cover"
+									draggable={false}
+								/>
+							</div>
+						</div>
 					);
 				}
 				return (
@@ -287,6 +323,7 @@ export function AnnotationOverlay({
 						No image
 					</div>
 				);
+			}
 
 			case "figure":
 				if (!annotation.figureData) {

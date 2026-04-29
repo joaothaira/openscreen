@@ -77,6 +77,7 @@ interface FrameRenderConfig {
 	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
 	webcamSizePreset?: import("@/components/video-editor/types").WebcamSizePreset;
 	webcamFocusRegions?: WebcamFocusRegion[];
+	webcamFocusZoom?: number;
 	previewWidth?: number;
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
@@ -291,30 +292,30 @@ export class FrameRenderer {
 					const gradient =
 						parsedGradient.type === "linear"
 							? (() => {
-									const points = getLinearGradientPoints(
-										resolveLinearGradientAngle(parsedGradient.descriptor),
-										this.config.width,
-										this.config.height,
-									);
+								const points = getLinearGradientPoints(
+									resolveLinearGradientAngle(parsedGradient.descriptor),
+									this.config.width,
+									this.config.height,
+								);
 
-									return bgCtx.createLinearGradient(points.x0, points.y0, points.x1, points.y1);
-								})()
+								return bgCtx.createLinearGradient(points.x0, points.y0, points.x1, points.y1);
+							})()
 							: (() => {
-									const shape = getRadialGradientShape(
-										parsedGradient.descriptor,
-										this.config.width,
-										this.config.height,
-									);
+								const shape = getRadialGradientShape(
+									parsedGradient.descriptor,
+									this.config.width,
+									this.config.height,
+								);
 
-									return bgCtx.createRadialGradient(
-										shape.cx,
-										shape.cy,
-										0,
-										shape.cx,
-										shape.cy,
-										shape.radius,
-									);
-								})();
+								return bgCtx.createRadialGradient(
+									shape.cx,
+									shape.cy,
+									0,
+									shape.cx,
+									shape.cy,
+									shape.radius,
+								);
+							})();
 
 					parsedGradient.stops.forEach((stop) => {
 						gradient.addColorStop(stop.offset, stop.color);
@@ -569,7 +570,16 @@ export class FrameRenderer {
 		const { width, height, webcamSize, webcamMaskShape } = this.config;
 		if (!webcamSize) return null;
 		if (this.config.webcamLayoutPreset === "vertical-stack") {
-			return { x: 0, y: 0, width, height };
+			const zoom = this.config.webcamFocusZoom ?? 1;
+			const base = this.layoutCache?.webcamRect;
+			if (!base) return { x: 0, y: 0, width, height };
+			const t = (a: number, b: number) => a + (b - a) * zoom;
+			return {
+				x: Math.round(t(base.x, 0)),
+				y: Math.round(t(base.y, 0)),
+				width: Math.round(t(base.width, width)),
+				height: Math.round(t(base.height, height)),
+			};
 		}
 		const activeRegion = this.getActiveFocusRegion(timeMs);
 		const shape = activeRegion?.focusShape ?? webcamMaskShape;
@@ -965,7 +975,7 @@ function renderSubtitle(
 	const offsetFraction = (style?.bottomOffset ?? 8) / 100;
 	const fontFamily = style?.fontFamily ?? "Inter, Arial, sans-serif";
 
-	const scaledFontSize = Math.round(fontSize * (canvasWidth / 1920));
+	const scaledFontSize = Math.round(fontSize * (Math.max(canvasWidth, canvasHeight) * 2 / 1920));
 	const offsetPx = canvasHeight * offsetFraction;
 	const maxWidth = canvasWidth * 0.85;
 
