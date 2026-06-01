@@ -13,6 +13,9 @@ import type {
 	CropRegion,
 	Rotation3D,
 	SpeedRegion,
+	SubtitleItem,
+	SubtitleStyle,
+	WebcamFocusRegion,
 	WebcamLayoutPreset,
 	WebcamSizePreset,
 	ZoomRegion,
@@ -46,6 +49,7 @@ import {
 } from "@/components/video-editor/videoPlayback/zoomTransform";
 import {
 	computeCompositeLayout,
+	FOCUS_RIGHT_MARGIN_FRACTION,
 	getWebcamLayoutPresetDefinition,
 	type Size,
 	type StyledRenderRect,
@@ -100,13 +104,20 @@ interface FrameRenderConfig {
 	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
 	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
+	webcamCornerPreset?: import("@/components/video-editor/types").WebcamCornerPreset | null;
+	webcamStackPosition?: import("@/components/video-editor/types").WebcamStackPosition | null;
 	annotationRegions?: AnnotationRegion[];
 	speedRegions?: SpeedRegion[];
+	webcamFocusRegions?: WebcamFocusRegion[];
+	webcamFocusZoom?: number;
 	previewWidth?: number;
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
 	cursorClickTimestamps?: number[];
-	platform: string;
+	platform?: string;
+	subtitleRegions?: SubtitleItem[];
+	showSubtitles?: boolean;
+	subtitleStyle?: SubtitleStyle;
 }
 
 interface AnimationState {
@@ -520,6 +531,27 @@ export class FrameRenderer {
 			// Flat path or 3D-without-shadow: stamp foreground directly.
 			this.compositeCtx.drawImage(this.foregroundCanvas, 0, 0);
 		}
+
+		// Render subtitles on top
+		if (
+			this.config.showSubtitles &&
+			this.config.subtitleRegions &&
+			this.config.subtitleRegions.length > 0 &&
+			this.compositeCtx
+		) {
+			const active = this.config.subtitleRegions.find(
+				(s) => timeMs >= s.startMs && timeMs <= s.endMs,
+			);
+			if (active) {
+				renderSubtitle(
+					this.compositeCtx,
+					active.text,
+					this.config.width,
+					this.config.height,
+					this.config.subtitleStyle,
+				);
+			}
+		}
 	}
 
 	// The video's actual on-screen boundary, accounting for the zoom camera
@@ -695,9 +727,11 @@ export class FrameRenderer {
 			screenSize: { width: croppedVideoWidth, height: croppedVideoHeight },
 			webcamSize: webcamFrame ? this.config.webcamSize : null,
 			layoutPreset: this.config.webcamLayoutPreset,
+			webcamMaskShape: this.config.webcamMaskShape,
 			webcamSizePreset: this.config.webcamSizePreset,
 			webcamPosition: this.config.webcamPosition,
-			webcamMaskShape: this.config.webcamMaskShape,
+			webcamCornerPreset: this.config.webcamCornerPreset,
+			webcamStackPosition: this.config.webcamStackPosition,
 		});
 		if (!compositeLayout) return;
 
@@ -765,6 +799,58 @@ export class FrameRenderer {
 			maskBorderRadius: scaledBorderRadius,
 			webcamRect: compositeLayout.webcamRect,
 		};
+	}
+
+	private computeFocusStrength(timeMs: number): number {
+		const regions = this.config.webcamFocusRegions;
+		if (!regions?.length) return 0;
+		const TRANSITION_MS = 350;
+		const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
+		for (const region of regions) {
+			if (timeMs >= region.startMs && timeMs < region.endMs) {
+				const fadeIn = Math.min((timeMs - region.startMs) / TRANSITION_MS, 1);
+				const fadeOut = Math.min((region.endMs - timeMs) / TRANSITION_MS, 1);
+				return easeInOut(Math.min(fadeIn, fadeOut));
+			}
+		}
+		return 0;
+	}
+
+	private getActiveFocusRegion(timeMs: number) {
+		const regions = this.config.webcamFocusRegions;
+		if (!regions?.length) return null;
+		return regions.find((r) => timeMs >= r.startMs && timeMs < r.endMs) ?? null;
+	}
+
+	private computeFocusWebcamRect(
+		timeMs: number,
+	): { x: number; y: number; width: number; height: number } | null {
+		const { width, height, webcamSize, webcamMaskShape } = this.config;
+		if (!webcamSize) return null;
+		if (this.config.webcamLayoutPreset === "vertical-stack") {
+			const zoom = this.config.webcamFocusZoom ?? 1;
+			const base = this.layoutCache?.webcamRect;
+			if (!base) return { x: 0, y: 0, width, height };
+			const t = (a: number, b: number) => a + (b - a) * zoom;
+			return {
+				x: Math.round(t(base.x, 0)),
+				y: Math.round(t(base.y, 0)),
+				width: Math.round(t(base.width, width)),
+				height: Math.round(t(base.height, height)),
+			};
+		}
+		const activeRegion = this.getActiveFocusRegion(timeMs);
+		const shape = activeRegion?.focusShape ?? webcamMaskShape;
+		const isRightAligned = shape === "portrait" || shape === "square";
+		const srcW = shape === "portrait" ? 9 : shape === "square" ? 1 : webcamSize.width;
+		const srcH = shape === "portrait" ? 16 : shape === "square" ? 1 : webcamSize.height;
+		const maxW = shape === "portrait" ? width / 3 : shape === "square" ? width * 0.45 : width * 0.8;
+		const scale = Math.min((height * 0.9) / srcH, maxW / srcW);
+		const w = Math.round(srcW * scale);
+		const h = Math.round(srcH * scale);
+		const rightMarginOffset = Math.round(width * FOCUS_RIGHT_MARGIN_FRACTION);
+		const x = isRightAligned ? width - (w + rightMarginOffset) : Math.round((width - w) / 2);
+		return { x, y: Math.round((height - h) / 2), width: w, height: h };
 	}
 
 	private updateAnimationState(timeMs: number): number {
@@ -922,6 +1008,44 @@ export class FrameRenderer {
 		);
 	}
 
+	/** Draw a video frame into a canvas rect using cover semantics (crops to fill, no squish). */
+	private drawWebcamCover(
+		ctx: CanvasRenderingContext2D,
+		frame: VideoFrame,
+		destX: number,
+		destY: number,
+		destW: number,
+		destH: number,
+	): void {
+		const srcW = frame.displayWidth;
+		const srcH = frame.displayHeight;
+		const destAspect = destW / destH;
+		const srcAspect = srcW / srcH;
+		let sx: number, sy: number, sw: number, sh: number;
+		if (srcAspect > destAspect) {
+			sh = srcH;
+			sw = srcH * destAspect;
+			sx = (srcW - sw) / 2;
+			sy = 0;
+		} else {
+			sw = srcW;
+			sh = srcW / destAspect;
+			sx = 0;
+			sy = (srcH - sh) / 2;
+		}
+		ctx.drawImage(
+			frame as unknown as CanvasImageSource,
+			sx,
+			sy,
+			sw,
+			sh,
+			destX,
+			destY,
+			destW,
+			destH,
+		);
+	}
+
 	// On Linux/Wayland the implicit GPU→2D texture-sharing path
 	// used by drawImage(webglCanvas) can fail silently (EGL/Ozone),
 	// producing green/empty frames. Explicit gl.readPixels always
@@ -1002,6 +1126,17 @@ export class FrameRenderer {
 		// Foreground (transparent): recording + webcam. Shadow only baked here on
 		// the flat path; the 3D path applies it after rotation (see renderFrame).
 		fgCtx.clearRect(0, 0, w, h);
+
+		// Compute webcam focus strength for smooth blur/dim transition of the recording.
+		const focusStrength = this.computeFocusStrength(this.currentVideoTime * 1000);
+		const applyFocusBlur = focusStrength > 0;
+		if (applyFocusBlur) {
+			fgCtx.save();
+			const blurPx = Math.round(14 * focusStrength);
+			const brightness = 1 - 0.5 * focusStrength;
+			fgCtx.filter = `blur(${blurPx}px) brightness(${brightness})`;
+		}
+
 		if (
 			applyShadowToRecording &&
 			this.config.showShadow &&
@@ -1070,37 +1205,47 @@ export class FrameRenderer {
 			}
 		}
 
+		if (applyFocusBlur) {
+			fgCtx.restore();
+		}
+
 		const webcamRect = this.layoutCache?.webcamRect ?? null;
 		if (webcamFrame && webcamRect) {
+			// Interpolate webcam rect toward focus rect when in a focus region
+			let activeRect = webcamRect;
+			if (focusStrength > 0) {
+				const focusMsNow = this.currentVideoTime * 1000;
+				const focusRect = this.computeFocusWebcamRect(focusMsNow);
+				if (focusRect) {
+					const activeRegion = this.getActiveFocusRegion(focusMsNow);
+					const focusShape =
+						activeRegion?.focusShape ?? this.config.webcamMaskShape ?? webcamRect.maskShape;
+					const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+					activeRect = {
+						...webcamRect,
+						x: lerp(webcamRect.x, focusRect.x, focusStrength),
+						y: lerp(webcamRect.y, focusRect.y, focusStrength),
+						width: lerp(webcamRect.width, focusRect.width, focusStrength),
+						height: lerp(webcamRect.height, focusRect.height, focusStrength),
+						maskShape: focusShape,
+					};
+				}
+			}
+
 			const preset = getWebcamLayoutPresetDefinition(this.config.webcamLayoutPreset);
-			const shape = webcamRect.maskShape ?? this.config.webcamMaskShape ?? "rectangle";
-			const sourceWidth =
-				("displayWidth" in webcamFrame && webcamFrame.displayWidth > 0
-					? webcamFrame.displayWidth
-					: webcamFrame.codedWidth) || webcamRect.width;
-			const sourceHeight =
-				("displayHeight" in webcamFrame && webcamFrame.displayHeight > 0
-					? webcamFrame.displayHeight
-					: webcamFrame.codedHeight) || webcamRect.height;
-			const sourceAspect = sourceWidth / sourceHeight;
-			const targetAspect = webcamRect.width / webcamRect.height;
-			const sourceCropWidth =
-				sourceAspect > targetAspect ? Math.round(sourceHeight * targetAspect) : sourceWidth;
-			const sourceCropHeight =
-				sourceAspect > targetAspect ? sourceHeight : Math.round(sourceWidth / targetAspect);
-			const sourceCropX = Math.max(0, Math.round((sourceWidth - sourceCropWidth) / 2));
-			const sourceCropY = Math.max(0, Math.round((sourceHeight - sourceCropHeight) / 2));
+			const shape = activeRect.maskShape ?? this.config.webcamMaskShape ?? "rectangle";
 			fgCtx.save();
 			drawCanvasClipPath(
 				fgCtx,
-				webcamRect.x,
-				webcamRect.y,
-				webcamRect.width,
-				webcamRect.height,
+				activeRect.x,
+				activeRect.y,
+				activeRect.width,
+				activeRect.height,
 				shape,
-				webcamRect.borderRadius,
+				activeRect.borderRadius,
 			);
-			if (preset.shadow) {
+			// Drop the webcam shadow while it expands into focus so it doesn't smear.
+			if (preset.shadow && focusStrength === 0) {
 				fgCtx.shadowColor = preset.shadow.color;
 				fgCtx.shadowBlur = preset.shadow.blur;
 				fgCtx.shadowOffsetX = preset.shadow.offsetX;
@@ -1109,16 +1254,13 @@ export class FrameRenderer {
 			fgCtx.fillStyle = "#000000";
 			fgCtx.fill();
 			fgCtx.clip();
-			fgCtx.drawImage(
-				webcamFrame as unknown as CanvasImageSource,
-				sourceCropX,
-				sourceCropY,
-				sourceCropWidth,
-				sourceCropHeight,
-				webcamRect.x,
-				webcamRect.y,
-				webcamRect.width,
-				webcamRect.height,
+			this.drawWebcamCover(
+				fgCtx,
+				webcamFrame,
+				activeRect.x,
+				activeRect.y,
+				activeRect.width,
+				activeRect.height,
 			);
 			fgCtx.restore();
 		}
@@ -1164,4 +1306,195 @@ export class FrameRenderer {
 		}
 		this.cursorImageCache.clear();
 	}
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+	const words = text.split(" ");
+	const lines: string[] = [];
+	let line = "";
+	for (const word of words) {
+		const test = line ? `${line} ${word}` : word;
+		if (ctx.measureText(test).width > maxWidth && line) {
+			lines.push(line);
+			line = word;
+		} else {
+			line = test;
+		}
+	}
+	if (line) lines.push(line);
+	return lines;
+}
+
+function renderSubtitle(
+	ctx: CanvasRenderingContext2D,
+	text: string,
+	canvasWidth: number,
+	canvasHeight: number,
+	style?: SubtitleStyle,
+) {
+	const template = style?.template ?? "classic";
+	const fontSize = style?.fontSize ?? 32;
+	const fontColor = style?.fontColor ?? "#ffffff";
+	const bgColor = style?.backgroundColor ?? "rgba(0,0,0,0.7)";
+	const isBottom = !style || style.position !== "top";
+	const offsetFraction = (style?.bottomOffset ?? 8) / 100;
+	const fontFamily = style?.fontFamily ?? "Inter, Arial, sans-serif";
+
+	const scaledFontSize = Math.round(fontSize * (Math.max(canvasWidth, canvasHeight) * 2 / 1920));
+	const offsetPx = canvasHeight * offsetFraction;
+	const maxWidth = canvasWidth * 0.85;
+
+	ctx.save();
+	ctx.textBaseline = "middle";
+	ctx.textAlign = "center";
+
+	if (template === "minimal") {
+		const fontStr = `600 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, text, maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const blockH = lines.length * lineH;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.shadowColor = "rgba(0,0,0,0.8)";
+		ctx.shadowBlur = 10;
+		ctx.shadowOffsetY = 2;
+		ctx.fillStyle = fontColor;
+		lines.forEach((l, i) => {
+			ctx.fillText(l, canvasWidth / 2, blockY + scaledFontSize * 0.7 + i * lineH);
+		});
+	} else if (template === "bold") {
+		const upperText = text.toUpperCase();
+		const fontStr = `900 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, upperText, maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const blockH = lines.length * lineH;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.shadowColor = "rgba(0,0,0,0.9)";
+		ctx.shadowBlur = 20;
+		ctx.shadowOffsetY = 4;
+		ctx.fillStyle = fontColor;
+		lines.forEach((l, i) => {
+			ctx.fillText(l, canvasWidth / 2, blockY + scaledFontSize * 0.7 + i * lineH);
+		});
+	} else if (template === "boxed") {
+		const paddingV = Math.round(scaledFontSize * 0.3);
+		const fontStr = `700 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, text, maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const blockH = lines.length * lineH + paddingV * 2;
+		const blockW = canvasWidth * 0.9;
+		const blockX = (canvasWidth - blockW) / 2;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.fillStyle = "rgba(0,0,0,0.9)";
+		ctx.fillRect(blockX, blockY, blockW, blockH);
+		ctx.fillStyle = fontColor;
+		lines.forEach((l, i) => {
+			ctx.fillText(l, canvasWidth / 2, blockY + paddingV + scaledFontSize * 0.7 + i * lineH);
+		});
+	} else if (template === "cinematic") {
+		const fontStr = `500 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, text.toUpperCase(), maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const gapPx = Math.round(scaledFontSize * 0.3);
+		const lineThickPx = Math.max(1, Math.round(scaledFontSize * 0.05));
+		const lineWidthPx = Math.round(canvasWidth * 0.08);
+		const blockH = lineThickPx + gapPx + lines.length * lineH;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.fillStyle = fontColor;
+		ctx.globalAlpha = 0.6;
+		ctx.fillRect((canvasWidth - lineWidthPx) / 2, blockY, lineWidthPx, lineThickPx);
+		ctx.globalAlpha = 1;
+		ctx.fillStyle = fontColor;
+		lines.forEach((l, i) => {
+			ctx.fillText(l, canvasWidth / 2, blockY + lineThickPx + gapPx + scaledFontSize * 0.7 + i * lineH);
+		});
+	} else if (template === "outline") {
+		const fontStr = `900 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, text.toUpperCase(), maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const blockH = lines.length * lineH;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.shadowColor = "rgba(0,0,0,0.6)";
+		ctx.shadowBlur = 20;
+		ctx.shadowOffsetY = 4;
+		ctx.strokeStyle = fontColor;
+		ctx.lineWidth = Math.max(1, scaledFontSize * 0.04);
+		lines.forEach((l, i) => {
+			ctx.strokeText(l, canvasWidth / 2, blockY + scaledFontSize * 0.7 + i * lineH);
+		});
+	} else if (template === "glow") {
+		const fontStr = `800 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, text, maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const blockH = lines.length * lineH;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.shadowColor = "rgba(255,255,255,0.8)";
+		ctx.shadowBlur = 40;
+		ctx.fillStyle = fontColor;
+		for (let g = 0; g < 3; g++) {
+			lines.forEach((l, i) => {
+				ctx.fillText(l, canvasWidth / 2, blockY + scaledFontSize * 0.7 + i * lineH);
+			});
+		}
+	} else if (template === "stacked") {
+		const stackWords = text.toUpperCase().split(" ");
+		const lineH = scaledFontSize * 1.1;
+		const blockH = stackWords.length * lineH;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.shadowColor = "rgba(0,0,0,0.8)";
+		ctx.shadowBlur = 12;
+		ctx.fillStyle = fontColor;
+		stackWords.forEach((word, i) => {
+			ctx.font = `800 ${scaledFontSize}px ${fontFamily}`;
+			ctx.fillText(word, canvasWidth / 2, blockY + scaledFontSize * 0.7 + i * lineH);
+		});
+	} else if (template === "highlight") {
+		const paddingH = Math.round(scaledFontSize * 0.5);
+		const paddingV = Math.round(scaledFontSize * 0.25);
+		const radius = Math.round(scaledFontSize * 0.2);
+		const fontStr = `700 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, text, maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const blockH = lines.length * lineH + paddingV * 2;
+		const blockW = Math.max(...lines.map((l) => ctx.measureText(l).width)) + paddingH * 2;
+		const blockX = (canvasWidth - blockW) / 2;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.fillStyle = bgColor;
+		ctx.beginPath();
+		ctx.roundRect(blockX, blockY, blockW, blockH, radius);
+		ctx.fill();
+		ctx.fillStyle = "#FFD700";
+		lines.forEach((l, i) => {
+			ctx.fillText(l, canvasWidth / 2, blockY + paddingV + scaledFontSize * 0.7 + i * lineH);
+		});
+	} else {
+		// classic
+		const paddingH = Math.round(scaledFontSize * 0.5);
+		const paddingV = Math.round(scaledFontSize * 0.25);
+		const radius = Math.round(scaledFontSize * 0.2);
+		const fontStr = `600 ${scaledFontSize}px ${fontFamily}`;
+		ctx.font = fontStr;
+		const lines = wrapText(ctx, text, maxWidth);
+		const lineH = scaledFontSize * 1.4;
+		const blockH = lines.length * lineH + paddingV * 2;
+		const blockW = Math.max(...lines.map((l) => ctx.measureText(l).width)) + paddingH * 2;
+		const blockX = (canvasWidth - blockW) / 2;
+		const blockY = isBottom ? canvasHeight - offsetPx - blockH : offsetPx;
+		ctx.fillStyle = bgColor;
+		ctx.beginPath();
+		ctx.roundRect(blockX, blockY, blockW, blockH, radius);
+		ctx.fill();
+		ctx.fillStyle = fontColor;
+		lines.forEach((l, i) => {
+			ctx.fillText(l, canvasWidth / 2, blockY + paddingV + scaledFontSize * 0.7 + i * lineH);
+		});
+	}
+
+	ctx.restore();
 }

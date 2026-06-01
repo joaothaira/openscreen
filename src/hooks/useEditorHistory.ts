@@ -8,14 +8,24 @@ import type {
 	AnnotationRegion,
 	CropRegion,
 	SpeedRegion,
+	SubtitleItem,
+	SubtitleStyle,
 	TrimRegion,
+	WebcamCornerPreset,
+	WebcamFocusRegion,
 	WebcamLayoutPreset,
 	WebcamMaskShape,
 	WebcamPosition,
+	WebcamSegment,
 	WebcamSizePreset,
+	WebcamStackPosition,
 	ZoomRegion,
 } from "@/components/video-editor/types";
-import { DEFAULT_CROP_REGION } from "@/components/video-editor/types";
+import {
+	DEFAULT_CROP_REGION,
+	DEFAULT_SUBTITLE_STYLE,
+	DEFAULT_WEBCAM_STACK_POSITION,
+} from "@/components/video-editor/types";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
 
 // Undoable state — selection IDs are intentionally excluded (undoing a
@@ -24,6 +34,7 @@ export interface EditorState {
 	zoomRegions: ZoomRegion[];
 	trimRegions: TrimRegion[];
 	speedRegions: SpeedRegion[];
+	webcamFocusRegions: WebcamFocusRegion[];
 	annotationRegions: AnnotationRegion[];
 	cropRegion: CropRegion;
 	wallpaper: string;
@@ -38,12 +49,20 @@ export interface EditorState {
 	webcamMaskShape: WebcamMaskShape;
 	webcamSizePreset: WebcamSizePreset;
 	webcamPosition: WebcamPosition | null;
+	webcamCornerPreset: WebcamCornerPreset | null;
+	webcamStackPosition: WebcamStackPosition;
+	webcamFocusZoom: number;
+	webcamSegments: WebcamSegment[];
+	subtitleRegions: SubtitleItem[];
+	showSubtitles: boolean;
+	subtitleStyle: SubtitleStyle;
 }
 
 export const INITIAL_EDITOR_STATE: EditorState = {
 	zoomRegions: [],
 	trimRegions: [],
 	speedRegions: [],
+	webcamFocusRegions: [],
 	annotationRegions: [],
 	cropRegion: DEFAULT_CROP_REGION,
 	wallpaper: DEFAULT_EDITOR_LAYOUT_SETTINGS.wallpaper,
@@ -58,6 +77,13 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	webcamMaskShape: DEFAULT_WEBCAM_SETTINGS.maskShape,
 	webcamSizePreset: DEFAULT_WEBCAM_SETTINGS.sizePreset,
 	webcamPosition: DEFAULT_WEBCAM_SETTINGS.position,
+	webcamCornerPreset: null,
+	webcamStackPosition: DEFAULT_WEBCAM_STACK_POSITION,
+	webcamFocusZoom: 1,
+	webcamSegments: [],
+	subtitleRegions: [],
+	showSubtitles: true,
+	subtitleStyle: DEFAULT_SUBTITLE_STYLE,
 };
 
 type StateUpdate = Partial<EditorState> | ((prev: EditorState) => Partial<EditorState>);

@@ -23,8 +23,12 @@ import {
 	DEFAULT_BLUR_DATA,
 	DEFAULT_BLUR_FREEHAND_POINTS,
 	DEFAULT_BLUR_INTENSITY,
+	DEFAULT_CAPTION_DATA,
 	DEFAULT_FIGURE_DATA,
+	DEFAULT_MARKER_DATA,
 	DEFAULT_PLAYBACK_SPEED,
+	DEFAULT_SUBTITLE_STYLE,
+	DEFAULT_WEBCAM_STACK_POSITION,
 	DEFAULT_ZOOM_DEPTH,
 	DEFAULT_ZOOM_MOTION_BLUR,
 	MAX_BLUR_BLOCK_SIZE,
@@ -34,11 +38,18 @@ import {
 	MIN_BLUR_INTENSITY,
 	MIN_PLAYBACK_SPEED,
 	type SpeedRegion,
+	type SubtitleItem,
+	type SubtitleStyle,
+	type SubtitleTemplate,
 	type TrimRegion,
+	type WebcamCornerPreset,
+	type WebcamFocusRegion,
 	type WebcamLayoutPreset,
 	type WebcamMaskShape,
 	type WebcamPosition,
+	type WebcamSegment,
 	type WebcamSizePreset,
+	type WebcamStackPosition,
 	type ZoomRegion,
 } from "./types";
 
@@ -74,17 +85,25 @@ export interface ProjectEditorState {
 	zoomRegions: ZoomRegion[];
 	trimRegions: TrimRegion[];
 	speedRegions: SpeedRegion[];
+	webcamFocusRegions: WebcamFocusRegion[];
 	annotationRegions: AnnotationRegion[];
 	aspectRatio: AspectRatio;
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape: WebcamMaskShape;
 	webcamSizePreset: WebcamSizePreset;
 	webcamPosition: WebcamPosition | null;
+	webcamCornerPreset: WebcamCornerPreset | null;
+	webcamStackPosition: WebcamStackPosition;
+	webcamFocusZoom: number; // 0 = stays in stack band, 1 = fills full canvas
+	webcamSegments: WebcamSegment[];
 	exportQuality: ExportQuality;
 	exportFormat: ExportFormat;
 	gifFrameRate: GifFrameRate;
 	gifLoop: boolean;
 	gifSizePreset: GifSizePreset;
+	subtitleRegions: SubtitleItem[];
+	showSubtitles: boolean;
+	subtitleStyle: SubtitleStyle;
 }
 
 export interface EditorProjectData {
@@ -322,14 +341,17 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 					const blurType = normalizeBlurType(region.blurData?.type);
 					const blurColor = normalizeBlurColor(region.blurData?.color);
 
-					return {
+					const normalized = {
 						id: region.id,
 						startMs,
 						endMs,
-						type:
-							region.type === "image" || region.type === "figure" || region.type === "blur"
-								? region.type
-								: "text",
+						type: (region.type === "image" ||
+						region.type === "figure" ||
+						region.type === "blur" ||
+						region.type === "caption" ||
+						region.type === "marker"
+							? region.type
+							: "text") as import("./types").AnnotationType,
 						content: typeof region.content === "string" ? region.content : "",
 						textContent: typeof region.textContent === "string" ? region.textContent : undefined,
 						imageContent: typeof region.imageContent === "string" ? region.imageContent : undefined,
@@ -413,7 +435,37 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 											: DEFAULT_BLUR_FREEHAND_POINTS,
 									}
 								: undefined,
+						captionData: region.captionData
+							? {
+									...DEFAULT_CAPTION_DATA,
+									...region.captionData,
+								}
+							: undefined,
+						markerData: region.markerData
+							? {
+									...DEFAULT_MARKER_DATA,
+									...region.markerData,
+								}
+							: undefined,
 					};
+
+					// Correct caption position/size based on gradient direction so
+					// left/right gradients are always half-screen on the correct side.
+					if (normalized.type === "caption" && normalized.captionData) {
+						const dir = normalized.captionData.gradientDirection;
+						if (dir === "left") {
+							normalized.position = { x: 0, y: 0 };
+							normalized.size = { width: 50, height: 100 };
+						} else if (dir === "right") {
+							normalized.position = { x: 50, y: 0 };
+							normalized.size = { width: 50, height: 100 };
+						} else {
+							normalized.position = { x: 0, y: 0 };
+							normalized.size = { width: 100, height: 100 };
+						}
+					}
+
+					return normalized;
 				})
 		: [];
 
@@ -475,6 +527,26 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		zoomRegions: normalizedZoomRegions,
 		trimRegions: normalizedTrimRegions,
 		speedRegions: normalizedSpeedRegions,
+		webcamFocusRegions: Array.isArray(editor.webcamFocusRegions)
+			? editor.webcamFocusRegions
+					.filter((region): region is WebcamFocusRegion =>
+						Boolean(region && typeof region.id === "string"),
+					)
+					.map((region) => {
+						const rawStart = isFiniteNumber(region.startMs) ? Math.round(region.startMs) : 0;
+						const rawEnd = isFiniteNumber(region.endMs)
+							? Math.round(region.endMs)
+							: rawStart + 1000;
+						const startMs = Math.max(0, Math.min(rawStart, rawEnd));
+						const endMs = Math.max(startMs + 1, rawEnd);
+						const validShapes = ["rectangle", "circle", "square", "rounded", "portrait"];
+						const focusShape =
+							typeof region.focusShape === "string" && validShapes.includes(region.focusShape)
+								? (region.focusShape as WebcamMaskShape)
+								: undefined;
+						return { id: region.id, startMs, endMs, ...(focusShape ? { focusShape } : {}) };
+					})
+			: [],
 		annotationRegions: normalizedAnnotationRegions,
 		aspectRatio: normalizedAspectRatio,
 		webcamLayoutPreset: normalizedWebcamLayoutPreset,
@@ -482,7 +554,8 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			editor.webcamMaskShape === "rectangle" ||
 			editor.webcamMaskShape === "circle" ||
 			editor.webcamMaskShape === "square" ||
-			editor.webcamMaskShape === "rounded"
+			editor.webcamMaskShape === "rounded" ||
+			editor.webcamMaskShape === "portrait"
 				? editor.webcamMaskShape
 				: DEFAULT_WEBCAM_SETTINGS.maskShape,
 		webcamSizePreset:
@@ -490,6 +563,38 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 				? Math.max(10, Math.min(50, editor.webcamSizePreset))
 				: DEFAULT_WEBCAM_SETTINGS.sizePreset,
 		webcamPosition: normalizedWebcamPosition,
+		webcamCornerPreset:
+			editor.webcamCornerPreset === "top-left" ||
+			editor.webcamCornerPreset === "top-right" ||
+			editor.webcamCornerPreset === "center-left" ||
+			editor.webcamCornerPreset === "center-right" ||
+			editor.webcamCornerPreset === "bottom-left" ||
+			editor.webcamCornerPreset === "bottom-right"
+				? editor.webcamCornerPreset
+				: null,
+		webcamStackPosition:
+			editor.webcamStackPosition === "top" || editor.webcamStackPosition === "bottom"
+				? editor.webcamStackPosition
+				: DEFAULT_WEBCAM_STACK_POSITION,
+		webcamFocusZoom:
+			isFiniteNumber((editor as ProjectEditorState).webcamFocusZoom) &&
+			(editor as ProjectEditorState).webcamFocusZoom >= 0 &&
+			(editor as ProjectEditorState).webcamFocusZoom <= 1
+				? (editor as ProjectEditorState).webcamFocusZoom
+				: 1,
+		webcamSegments: Array.isArray(editor.webcamSegments)
+			? editor.webcamSegments.filter(
+					(seg): seg is WebcamSegment =>
+						Boolean(
+							seg &&
+								typeof seg.id === "string" &&
+								typeof seg.videoPath === "string" &&
+								typeof seg.sourcePath === "string" &&
+								isFiniteNumber(seg.startMs) &&
+								isFiniteNumber(seg.durationMs),
+						),
+				)
+			: [],
 		exportQuality:
 			editor.exportQuality === "medium" || editor.exportQuality === "source"
 				? editor.exportQuality
@@ -509,6 +614,66 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			editor.gifSizePreset === "original"
 				? editor.gifSizePreset
 				: DEFAULT_GIF_SETTINGS.sizePreset,
+		subtitleRegions: Array.isArray(editor.subtitleRegions)
+			? editor.subtitleRegions
+					.filter((item): item is SubtitleItem =>
+						Boolean(
+							item &&
+								typeof item.id === "string" &&
+								typeof item.text === "string" &&
+								isFiniteNumber(item.startMs) &&
+								isFiniteNumber(item.endMs),
+						),
+					)
+					.map((item) => ({
+						id: item.id,
+						startMs: Math.max(0, Math.round(item.startMs)),
+						endMs: Math.max(0, Math.round(item.endMs)),
+						text: item.text,
+					}))
+			: [],
+		showSubtitles: typeof editor.showSubtitles === "boolean" ? editor.showSubtitles : true,
+		subtitleStyle:
+			editor.subtitleStyle &&
+			typeof editor.subtitleStyle === "object" &&
+			isFiniteNumber((editor.subtitleStyle as SubtitleStyle).fontSize)
+				? {
+						fontSize: clamp(
+							isFiniteNumber((editor.subtitleStyle as SubtitleStyle).fontSize)
+								? (editor.subtitleStyle as SubtitleStyle).fontSize
+								: DEFAULT_SUBTITLE_STYLE.fontSize,
+							8,
+							120,
+						),
+						fontColor:
+							typeof (editor.subtitleStyle as SubtitleStyle).fontColor === "string"
+								? (editor.subtitleStyle as SubtitleStyle).fontColor
+								: DEFAULT_SUBTITLE_STYLE.fontColor,
+						backgroundColor:
+							typeof (editor.subtitleStyle as SubtitleStyle).backgroundColor === "string"
+								? (editor.subtitleStyle as SubtitleStyle).backgroundColor
+								: DEFAULT_SUBTITLE_STYLE.backgroundColor,
+						position:
+							(editor.subtitleStyle as SubtitleStyle).position === "top" ? "top" : "bottom",
+						bottomOffset: clamp(
+							isFiniteNumber((editor.subtitleStyle as SubtitleStyle).bottomOffset)
+								? (editor.subtitleStyle as SubtitleStyle).bottomOffset
+								: DEFAULT_SUBTITLE_STYLE.bottomOffset,
+							0,
+							50,
+						),
+						fontFamily:
+							typeof (editor.subtitleStyle as SubtitleStyle).fontFamily === "string"
+								? (editor.subtitleStyle as SubtitleStyle).fontFamily
+								: DEFAULT_SUBTITLE_STYLE.fontFamily,
+						template: (
+							["classic", "minimal", "bold", "boxed", "cinematic", "outline", "glow", "stacked", "highlight"] as SubtitleTemplate[]
+						).includes((editor.subtitleStyle as SubtitleStyle).template)
+							? (editor.subtitleStyle as SubtitleStyle).template
+							: "classic",
+					}
+				: DEFAULT_SUBTITLE_STYLE,
+
 	};
 }
 

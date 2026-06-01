@@ -45,7 +45,24 @@
 		"dualFrame": "Dual Frame",
 		"noWebcam": "No Webcam",
 		"webcamShape": "Camera Shape",
-		"webcamSize": "Webcam Size"
+		"webcamSize": "Webcam Size",
+		"webcamSizeSmall": "S",
+		"webcamSizeMedium": "M",
+		"webcamSizeLarge": "L",
+		"focusShape": "Focus Shape",
+		"deleteFocusRegion": "Delete Focus Region",
+		"addCameraVideo": "Add Camera Video",
+		"removeCameraVideo": "Remove Camera Video",
+		"changeCameraVideo": "Change/Upload Camera Video",
+		"position": "Position",
+		"corner_top_left": "Top Left",
+		"corner_top_right": "Top Right",
+		"corner_center_left": "Center Left",
+		"corner_center_right": "Center Right",
+		"corner_bottom_left": "Bottom Left",
+		"corner_bottom_right": "Bottom Right",
+		"stack_top": "Webcam Top",
+		"stack_bottom": "Webcam Bottom"
 	},
 	"effects": {
 		"title": "Video Effects",
@@ -163,7 +180,9 @@
 		"invalidImageType": "Invalid file type",
 		"imageFormatsOnly": "Please upload a JPG, PNG, GIF, or WebP image file.",
 		"imageUploadSuccess": "Image uploaded successfully!",
-		"failedImageUpload": "Failed to upload image"
+		"failedImageUpload": "Failed to upload image",
+		"textAnimation": "Text Animation",
+		"selectAnimation": "Select animation"
 	},
 	"fontStyles": {
 		"classic": "Classic",
@@ -173,7 +192,8 @@
 		"deco": "Deco",
 		"simple": "Simple",
 		"modern": "Modern",
-		"clean": "Clean"
+		"clean": "Clean",
+		"stencil": "Stencil"
 	},
 	"textAnimation": {
 		"title": "Text Animation",
@@ -219,5 +239,9 @@
 	"timeline": {
 		"title": "Timeline",
 		"waveform": "Show Audio Waveform on Trim Track"
+	},
+	"links": {
+		"reportBug": "Report a Bug",
+		"starOnGithub": "Star on GitHub"
 	}
 }

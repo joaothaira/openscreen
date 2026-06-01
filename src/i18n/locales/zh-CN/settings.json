@@ -43,9 +43,26 @@
 		"pictureInPicture": "画中画",
 		"verticalStack": "垂直堆叠",
 		"dualFrame": "双画框",
+		"noWebcam": "无摄像头",
 		"webcamShape": "摄像头形状",
 		"webcamSize": "摄像头大小",
-		"noWebcam": "无摄像头"
+		"webcamSizeSmall": "小",
+		"webcamSizeMedium": "中",
+		"webcamSizeLarge": "大",
+		"focusShape": "聚焦形状",
+		"deleteFocusRegion": "删除聚焦区域",
+		"addCameraVideo": "添加摄像头视频",
+		"removeCameraVideo": "移除摄像头视频",
+		"changeCameraVideo": "更换",
+		"position": "位置",
+		"corner_top_left": "左上",
+		"corner_top_right": "右上",
+		"corner_center_left": "左中",
+		"corner_center_right": "右中",
+		"corner_bottom_left": "左下",
+		"corner_bottom_right": "右下",
+		"stack_top": "摄像头置顶",
+		"stack_bottom": "摄像头置底"
 	},
 	"effects": {
 		"title": "视频效果",
@@ -175,7 +192,8 @@
 		"deco": "装饰",
 		"simple": "简约",
 		"modern": "现代",
-		"clean": "简洁"
+		"clean": "简洁",
+		"stencil": "模板"
 	},
 	"customFont": {
 		"dialogTitle": "添加 Google 字体",
@@ -210,5 +228,20 @@
 	"timeline": {
 		"title": "时间轴",
 		"waveform": "在剪辑轨道上显示音频波形"
+	},
+	"textAnimation": {
+		"title": "Text Animation",
+		"selectAnimation": "Select animation",
+		"none": "None",
+		"fade": "Fade",
+		"rise": "Rise",
+		"pop": "Pop",
+		"slideLeft": "Slide Left",
+		"typewriter": "Typewriter",
+		"pulse": "Pulse"
+	},
+	"links": {
+		"reportBug": "Report a Bug",
+		"starOnGithub": "Star on GitHub"
 	}
 }

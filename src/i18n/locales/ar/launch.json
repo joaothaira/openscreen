@@ -9,7 +9,8 @@
 		"openVideoFile": "فتح ملف فيديو",
 		"openProject": "فتح مشروع",
 		"useVerticalTray": "استخدام الشريط العمودي",
-		"useHorizontalTray": "استخدام الشريط الأفقي"
+		"useHorizontalTray": "استخدام الشريط الأفقي",
+		"openStudio": "Open Studio"
 	},
 	"audio": {
 		"enableSystemAudio": "تفعيل صوت النظام",
@@ -30,7 +31,10 @@
 		"loading": "جاري تحميل المصادر...",
 		"screens": "الشاشات ({{count}})",
 		"windows": "النوافذ ({{count}})",
-		"defaultSourceName": "الشاشة"
+		"defaultSourceName": "الشاشة",
+		"emptyTitle": "No screens or windows found",
+		"emptyDescription": "If you just granted screen recording permission, reload this picker. On macOS you may need to reopen OpenScreen.",
+		"loadFailedDescription": "OpenScreen could not load capture sources. Reload this picker and try again."
 	},
 	"recording": {
 		"selectSource": "يرجى تحديد مصدر للتسجيل"

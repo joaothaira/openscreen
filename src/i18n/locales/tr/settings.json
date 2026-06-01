@@ -45,7 +45,24 @@
 		"webcamShape": "Kamera Şekli",
 		"dualFrame": "Çift Kare",
 		"webcamSize": "Webcam Boyutu",
-		"noWebcam": "Web kamerası yok"
+		"noWebcam": "Web kamerası yok",
+		"webcamSizeSmall": "S",
+		"webcamSizeMedium": "M",
+		"webcamSizeLarge": "L",
+		"focusShape": "Focus Shape",
+		"deleteFocusRegion": "Delete Focus Region",
+		"addCameraVideo": "Add Camera Video",
+		"removeCameraVideo": "Remove Camera Video",
+		"changeCameraVideo": "Change/Upload Camera Video",
+		"position": "Position",
+		"corner_top_left": "Top Left",
+		"corner_top_right": "Top Right",
+		"corner_center_left": "Center Left",
+		"corner_center_right": "Center Right",
+		"corner_bottom_left": "Bottom Left",
+		"corner_bottom_right": "Bottom Right",
+		"stack_top": "Webcam Top",
+		"stack_bottom": "Webcam Bottom"
 	},
 	"effects": {
 		"title": "Video Efektleri",
@@ -175,7 +192,8 @@
 		"deco": "Dekoratif",
 		"simple": "Sade",
 		"modern": "Modern",
-		"clean": "Temiz"
+		"clean": "Temiz",
+		"stencil": "Stencil"
 	},
 	"customFont": {
 		"dialogTitle": "Google Yazı Tipi Ekle",
@@ -210,5 +228,20 @@
 	"timeline": {
 		"title": "Zaman Tüneli",
 		"waveform": "Kırpma Parçasında Ses Dalgasını Göster"
+	},
+	"textAnimation": {
+		"title": "Text Animation",
+		"selectAnimation": "Select animation",
+		"none": "None",
+		"fade": "Fade",
+		"rise": "Rise",
+		"pop": "Pop",
+		"slideLeft": "Slide Left",
+		"typewriter": "Typewriter",
+		"pulse": "Pulse"
+	},
+	"links": {
+		"reportBug": "Report a Bug",
+		"starOnGithub": "Star on GitHub"
 	}
 }

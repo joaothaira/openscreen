@@ -1,3 +1,6 @@
+/** Fraction of canvas width used as right margin for right-aligned focus shapes (portrait/square). */
+export const FOCUS_RIGHT_MARGIN_FRACTION = 0.05;
+
 export interface RenderRect {
 	x: number;
 	y: number;
@@ -169,6 +172,7 @@ export function getWebcamLayoutCssBoxShadow(
 		: "none";
 }
 
+
 export function computeCompositeLayout(params: {
 	canvasSize: Size;
 	maxContentSize?: Size;
@@ -177,6 +181,8 @@ export function computeCompositeLayout(params: {
 	layoutPreset?: WebcamLayoutPreset;
 	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
+	webcamCornerPreset?: import("@/components/video-editor/types").WebcamCornerPreset | null;
+	webcamStackPosition?: import("@/components/video-editor/types").WebcamStackPosition | null;
 	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
 }): WebcamCompositeLayout | null {
 	const {
@@ -187,6 +193,8 @@ export function computeCompositeLayout(params: {
 		layoutPreset = "picture-in-picture",
 		webcamSizePreset = 25,
 		webcamPosition,
+		webcamCornerPreset,
+		webcamStackPosition = "bottom",
 		webcamMaskShape = "rectangle",
 	} = params;
 	const { width: canvasWidth, height: canvasHeight } = canvasSize;
@@ -222,24 +230,23 @@ export function computeCompositeLayout(params: {
 			};
 		}
 
-		// Webcam: full width at the bottom, maintaining its aspect ratio
+		// Webcam: full width, maintaining its aspect ratio
 		const webcamAspect = webcamWidth / webcamHeight;
 		const resolvedWebcamWidth = canvasWidth;
 		const resolvedWebcamHeight = Math.round(canvasWidth / webcamAspect);
-
-		// Screen: fills remaining space at the top (cover mode — may crop sides)
 		const screenRectHeight = canvasHeight - resolvedWebcamHeight;
+		const webcamAtTop = webcamStackPosition === "top";
 
 		return {
 			screenRect: {
 				x: 0,
-				y: 0,
+				y: webcamAtTop ? Math.max(0, resolvedWebcamHeight) : 0,
 				width: canvasWidth,
 				height: Math.max(0, screenRectHeight),
 			},
 			webcamRect: {
 				x: 0,
-				y: Math.max(0, screenRectHeight),
+				y: webcamAtTop ? 0 : Math.max(0, screenRectHeight),
 				width: resolvedWebcamWidth,
 				height: resolvedWebcamHeight,
 				borderRadius: 0,
@@ -331,27 +338,51 @@ export function computeCompositeLayout(params: {
 	const referenceDim = Math.sqrt(canvasWidth * canvasHeight);
 	const maxWidth = Math.max(transform.minSize, referenceDim * MAX_STAGE_FRACTION);
 	const maxHeight = Math.max(transform.minSize, referenceDim * MAX_STAGE_FRACTION);
-	const scale = Math.min(maxWidth / webcamWidth, maxHeight / webcamHeight);
-	let width = Math.round(webcamWidth * scale);
-	let height = Math.round(webcamHeight * scale);
 
-	// Shape-specific dimension adjustments
-	if (webcamMaskShape === "circle" || webcamMaskShape === "square") {
-		const side = Math.min(width, height);
-		width = side;
-		height = side;
+	let width: number;
+	let height: number;
+
+	if (webcamMaskShape === "portrait") {
+		// Force 9:16 portrait ratio regardless of webcam's actual aspect ratio
+		const portraitScale = Math.min(maxWidth / 9, maxHeight / 16);
+		width = Math.round(9 * portraitScale);
+		height = Math.round(16 * portraitScale);
+	} else {
+		const scale = Math.min(maxWidth / webcamWidth, maxHeight / webcamHeight);
+		width = Math.round(webcamWidth * scale);
+		height = Math.round(webcamHeight * scale);
+
+		// Shape-specific dimension adjustments
+		if (webcamMaskShape === "circle" || webcamMaskShape === "square") {
+			const side = Math.min(width, height);
+			width = side;
+			height = side;
+		}
 	}
 
 	let webcamX: number;
 	let webcamY: number;
 
 	if (webcamPosition) {
-		// Custom position: cx/cy represent the center of the webcam as a fraction of the canvas
+		// Custom drag position: cx/cy represent the center of the webcam as a fraction of the canvas
 		webcamX = Math.round(webcamPosition.cx * canvasWidth - width / 2);
 		webcamY = Math.round(webcamPosition.cy * canvasHeight - height / 2);
 		// Clamp to stay within canvas bounds
 		webcamX = Math.max(0, Math.min(canvasWidth - width, webcamX));
 		webcamY = Math.max(0, Math.min(canvasHeight - height, webcamY));
+	} else if (webcamCornerPreset) {
+		// Named corner preset: position with margin from the nearest edges
+		const isLeft = webcamCornerPreset.endsWith("left");
+		const isTop = webcamCornerPreset.startsWith("top");
+		const isCenter = webcamCornerPreset.startsWith("center");
+		webcamX = isLeft
+			? margin
+			: Math.max(0, canvasWidth - margin - width);
+		webcamY = isTop
+			? margin
+			: isCenter
+				? Math.round((canvasHeight - height) / 2)
+				: Math.max(0, canvasHeight - margin - height);
 	} else {
 		// Default: bottom-right with margin
 		webcamX = Math.max(0, Math.round(canvasWidth - margin - width));
@@ -362,6 +393,8 @@ export function computeCompositeLayout(params: {
 	let borderRadius: number;
 	if (webcamMaskShape === "rounded") {
 		borderRadius = Math.round(Math.min(width, height) * 0.3);
+	} else if (webcamMaskShape === "portrait") {
+		borderRadius = Math.round(Math.min(width, height) * 0.15);
 	} else if (webcamMaskShape === "circle") {
 		borderRadius = Math.round(Math.min(width, height) / 2);
 	} else {
