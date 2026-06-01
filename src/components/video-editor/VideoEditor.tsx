@@ -54,16 +54,33 @@ import {
 	DEFAULT_PLAYBACK_SPEED,
 	DEFAULT_ZOOM_DEPTH,
 	type FigureData,
+	type ImageData,
 	type MarkerData,
 	type PlaybackSpeed,
 	type SpeedRegion,
 	type TrimRegion,
+	type WebcamSegment,
 	type ZoomDepth,
 	type ZoomFocus,
 	type ZoomFocusMode,
 	type ZoomRegion,
 } from "./types";
 import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
+
+function getVideoDurationMs(sourcePath: string): Promise<number> {
+	return new Promise((resolve) => {
+		const video = document.createElement("video");
+		video.src = toFileUrl(sourcePath);
+		const finish = (ms: number) => {
+			video.src = "";
+			resolve(ms);
+		};
+		video.onloadedmetadata = () => finish(video.duration * 1000);
+		video.onerror = () => finish(0);
+		video.load();
+		setTimeout(() => finish(0), 8000);
+	});
+}
 
 export default function VideoEditor() {
 	const {
@@ -95,13 +112,18 @@ export default function VideoEditor() {
 		webcamPosition,
 		webcamCornerPreset,
 		webcamStackPosition,
+		webcamFocusZoom,
+		webcamSegments,
+		subtitleRegions,
+		showSubtitles,
+		subtitleStyle,
 	} = editorState;
+
+	const hasWebcam = webcamSegments.length > 0;
 
 	// ── Non-undoable state
 	const [videoPath, setVideoPath] = useState<string | null>(null);
 	const [videoSourcePath, setVideoSourcePath] = useState<string | null>(null);
-	const [webcamVideoPath, setWebcamVideoPath] = useState<string | null>(null);
-	const [webcamVideoSourcePath, setWebcamVideoSourcePath] = useState<string | null>(null);
 	const [currentProjectPath, setCurrentProjectPath] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -114,6 +136,7 @@ export default function VideoEditor() {
 	const [selectedSpeedId, setSelectedSpeedId] = useState<string | null>(null);
 	const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
 	const [selectedWebcamFocusId, setSelectedWebcamFocusId] = useState<string | null>(null);
+	const [selectedWebcamSegmentId, setSelectedWebcamSegmentId] = useState<string | null>(null);
 	const [isExporting, setIsExporting] = useState(false);
 	const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
 	const [exportError, setExportError] = useState<string | null>(null);
@@ -131,6 +154,12 @@ export default function VideoEditor() {
 		format: string;
 	} | null>(null);
 	const [isFullscreen, setIsFullscreen] = useState(false);
+	const [isGeneratingSubtitles, setIsGeneratingSubtitles] = useState(false);
+	const [webcamSyncOffsetMs, setWebcamSyncOffsetMs] = useState<number>(() => {
+		const stored = localStorage.getItem("openscreen:webcamSyncOffsetMs");
+		const parsed = stored ? parseInt(stored, 10) : 0;
+		return Number.isFinite(parsed) ? parsed : 0;
+	});
 
 	const playerContainerRef = useRef<HTMLDivElement>(null);
 	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
@@ -147,6 +176,7 @@ export default function VideoEditor() {
 
 	const nextAnnotationIdRef = useRef(1);
 	const nextAnnotationZIndexRef = useRef(1);
+	const nextWebcamSegmentIdRef = useRef(1);
 	const exporterRef = useRef<VideoExporter | null>(null);
 
 	const currentProjectMedia = useMemo<ProjectMedia | null>(() => {
@@ -154,13 +184,8 @@ export default function VideoEditor() {
 		if (!screenVideoPath) {
 			return null;
 		}
-
-		const webcamSourcePath =
-			webcamVideoSourcePath ?? (webcamVideoPath ? fromFileUrl(webcamVideoPath) : null);
-		return webcamSourcePath
-			? { screenVideoPath, webcamVideoPath: webcamSourcePath }
-			: { screenVideoPath };
-	}, [videoPath, videoSourcePath, webcamVideoPath, webcamVideoSourcePath]);
+		return { screenVideoPath };
+	}, [videoPath, videoSourcePath]);
 
 	const applyLoadedProject = useCallback(
 		async (candidate: unknown, path?: string | null) => {
@@ -174,8 +199,23 @@ export default function VideoEditor() {
 				return false;
 			}
 			const sourcePath = fromFileUrl(media.screenVideoPath);
-			const webcamSourcePath = media.webcamVideoPath ? fromFileUrl(media.webcamVideoPath) : null;
 			const normalizedEditor = normalizeProjectEditor(project.editor);
+
+			// Migration: old projects stored webcam path in media; convert to a segment
+			let webcamSegments = normalizedEditor.webcamSegments;
+			if (webcamSegments.length === 0 && media.webcamVideoPath) {
+				const webcamSourcePath = fromFileUrl(media.webcamVideoPath);
+				const durationMs = await getVideoDurationMs(webcamSourcePath);
+				webcamSegments = [
+					{
+						id: "webcam-1",
+						videoPath: toFileUrl(webcamSourcePath),
+						sourcePath: webcamSourcePath,
+						startMs: webcamSyncOffsetMs,
+						durationMs,
+					},
+				];
+			}
 
 			try {
 				videoPlaybackRef.current?.pause();
@@ -189,8 +229,6 @@ export default function VideoEditor() {
 			setError(null);
 			setVideoSourcePath(sourcePath);
 			setVideoPath(toFileUrl(sourcePath));
-			setWebcamVideoSourcePath(webcamSourcePath);
-			setWebcamVideoPath(webcamSourcePath ? toFileUrl(webcamSourcePath) : null);
 			setCurrentProjectPath(path ?? null);
 
 			pushState({
@@ -213,6 +251,10 @@ export default function VideoEditor() {
 				webcamPosition: normalizedEditor.webcamPosition,
 				webcamCornerPreset: normalizedEditor.webcamCornerPreset,
 				webcamStackPosition: normalizedEditor.webcamStackPosition,
+				webcamSegments,
+				subtitleRegions: normalizedEditor.subtitleRegions,
+				showSubtitles: normalizedEditor.showSubtitles,
+				subtitleStyle: normalizedEditor.subtitleStyle,
 			});
 			setExportQuality(normalizedEditor.exportQuality);
 			setExportFormat(normalizedEditor.exportFormat);
@@ -250,12 +292,10 @@ export default function VideoEditor() {
 
 			setLastSavedSnapshot(
 				JSON.stringify(
-					createProjectData(
-						webcamSourcePath
-							? { screenVideoPath: sourcePath, webcamVideoPath: webcamSourcePath }
-							: { screenVideoPath: sourcePath },
-						normalizedEditor,
-					),
+					createProjectData({ screenVideoPath: sourcePath }, {
+						...normalizedEditor,
+						webcamSegments,
+					}),
 				),
 			);
 			return true;
@@ -288,11 +328,16 @@ export default function VideoEditor() {
 				webcamPosition,
 				webcamCornerPreset,
 				webcamStackPosition,
+				webcamFocusZoom,
+				webcamSegments,
 				exportQuality,
 				exportFormat,
 				gifFrameRate,
 				gifLoop,
 				gifSizePreset,
+				subtitleRegions,
+				showSubtitles,
+				subtitleStyle,
 			}),
 		);
 	}, [
@@ -314,20 +359,24 @@ export default function VideoEditor() {
 		webcamMaskShape,
 		webcamSizePreset,
 		webcamPosition,
-				webcamCornerPreset,
-				webcamStackPosition,
+		webcamCornerPreset,
+		webcamStackPosition,
+		webcamSegments,
 		exportQuality,
 		exportFormat,
 		gifFrameRate,
 		gifLoop,
 		gifSizePreset,
+		subtitleRegions,
+		showSubtitles,
+		subtitleStyle,
 	]);
 
 	const hasUnsavedChanges = Boolean(
 		currentProjectPath &&
-			currentProjectSnapshot &&
-			lastSavedSnapshot &&
-			currentProjectSnapshot !== lastSavedSnapshot,
+		currentProjectSnapshot &&
+		lastSavedSnapshot &&
+		currentProjectSnapshot !== lastSavedSnapshot,
 	);
 
 	useEffect(() => {
@@ -348,15 +397,25 @@ export default function VideoEditor() {
 				if (currentSessionResult.success && currentSessionResult.session) {
 					const session = currentSessionResult.session;
 					const sourcePath = fromFileUrl(session.screenVideoPath);
-					const webcamSourcePath = session.webcamVideoPath
-						? fromFileUrl(session.webcamVideoPath)
-						: null;
 					setVideoSourcePath(sourcePath);
 					setVideoPath(toFileUrl(sourcePath));
-					setWebcamVideoSourcePath(webcamSourcePath);
-					setWebcamVideoPath(webcamSourcePath ? toFileUrl(webcamSourcePath) : null);
 					setCurrentProjectPath(null);
 					setLastSavedSnapshot(null);
+					if (session.webcamVideoPath) {
+						const webcamSourcePath = fromFileUrl(session.webcamVideoPath);
+						const durationMs = await getVideoDurationMs(webcamSourcePath);
+						pushState({
+							webcamSegments: [
+								{
+									id: `webcam-${nextWebcamSegmentIdRef.current++}`,
+									videoPath: toFileUrl(webcamSourcePath),
+									sourcePath: webcamSourcePath,
+									startMs: webcamSyncOffsetMs,
+									durationMs,
+								},
+							],
+						});
+					}
 					return;
 				}
 
@@ -365,8 +424,6 @@ export default function VideoEditor() {
 					const sourcePath = fromFileUrl(result.path);
 					setVideoSourcePath(sourcePath);
 					setVideoPath(toFileUrl(sourcePath));
-					setWebcamVideoSourcePath(null);
-					setWebcamVideoPath(null);
 					setCurrentProjectPath(null);
 					setLastSavedSnapshot(null);
 				} else {
@@ -412,13 +469,18 @@ export default function VideoEditor() {
 				webcamMaskShape,
 				webcamSizePreset,
 				webcamPosition,
-			webcamCornerPreset,
-			webcamStackPosition,
+				webcamCornerPreset,
+				webcamStackPosition,
+				webcamFocusZoom,
+				webcamSegments,
 				exportQuality,
 				exportFormat,
 				gifFrameRate,
 				gifLoop,
 				gifSizePreset,
+				subtitleRegions,
+				showSubtitles,
+				subtitleStyle,
 			});
 
 			const fileNameBase =
@@ -473,11 +535,15 @@ export default function VideoEditor() {
 			webcamPosition,
 			webcamCornerPreset,
 			webcamStackPosition,
+			webcamSegments,
 			exportQuality,
 			exportFormat,
 			gifFrameRate,
 			gifLoop,
 			gifSizePreset,
+			subtitleRegions,
+			showSubtitles,
+			subtitleStyle,
 			videoPath,
 			t,
 		],
@@ -505,13 +571,25 @@ export default function VideoEditor() {
 	const handleAddWebcamVideo = useCallback(async () => {
 		const result = await window.electronAPI.openVideoFilePicker();
 		if (result.canceled || !result.success || !result.path) return;
-		setWebcamVideoSourcePath(result.path);
-		setWebcamVideoPath(toFileUrl(result.path));
-	}, []);
+		const sourcePath = result.path;
+		const durationMs = await getVideoDurationMs(sourcePath);
+		const segment: WebcamSegment = {
+			id: `webcam-${nextWebcamSegmentIdRef.current++}`,
+			videoPath: toFileUrl(sourcePath),
+			sourcePath,
+			startMs: Math.round(currentTime * 1000),
+			durationMs,
+		};
+		pushState((prev) => ({ webcamSegments: [...prev.webcamSegments, segment] }));
+	}, [currentTime, pushState]);
 
 	const handleRemoveWebcamVideo = useCallback(() => {
-		setWebcamVideoPath(null);
-		setWebcamVideoSourcePath(null);
+		pushState({ webcamSegments: [] });
+	}, [pushState]);
+
+	const handleWebcamSyncOffsetChange = useCallback((ms: number) => {
+		setWebcamSyncOffsetMs(ms);
+		localStorage.setItem("openscreen:webcamSyncOffsetMs", String(ms));
 	}, []);
 
 	const handleLoadProject = useCallback(async () => {
@@ -803,10 +881,10 @@ export default function VideoEditor() {
 				speedRegions: prev.speedRegions.map((region) =>
 					region.id === id
 						? {
-								...region,
-								startMs: Math.round(span.start),
-								endMs: Math.round(span.end),
-							}
+							...region,
+							startMs: Math.round(span.start),
+							endMs: Math.round(span.end),
+						}
 						: region,
 				),
 			}));
@@ -898,6 +976,40 @@ export default function VideoEditor() {
 			setSelectedSpeedId(null);
 		}
 	}, []);
+
+	const handleSelectWebcamSegment = useCallback((id: string | null) => {
+		setSelectedWebcamSegmentId(id);
+		if (id) {
+			setSelectedZoomId(null);
+			setSelectedTrimId(null);
+			setSelectedAnnotationId(null);
+			setSelectedSpeedId(null);
+			setSelectedWebcamFocusId(null);
+		}
+	}, []);
+
+	const handleWebcamSegmentSpanChange = useCallback(
+		(id: string, span: Span) => {
+			pushState((prev) => ({
+				webcamSegments: prev.webcamSegments.map((s) =>
+					s.id === id
+						? { ...s, startMs: Math.round(span.start), durationMs: Math.round(span.end - span.start) }
+						: s,
+				),
+			}));
+		},
+		[pushState],
+	);
+
+	const handleWebcamSegmentDelete = useCallback(
+		(id: string) => {
+			pushState((prev) => ({
+				webcamSegments: prev.webcamSegments.filter((s) => s.id !== id),
+			}));
+			if (selectedWebcamSegmentId === id) setSelectedWebcamSegmentId(null);
+		},
+		[selectedWebcamSegmentId, pushState],
+	);
 
 	const handleAnnotationAdded = useCallback(
 		(span: Span) => {
@@ -1034,12 +1146,29 @@ export default function VideoEditor() {
 					} else if (captionData.gradientDirection === "right") {
 						updated.position = { x: 50, y: 0 };
 						updated.size = { width: 50, height: 100 };
+					} else if (captionData.gradientDirection === "top") {
+						updated.position = { x: 0, y: 0 };
+						updated.size = { width: 100, height: 33 };
+					} else if (captionData.gradientDirection === "bottom") {
+						updated.position = { x: 0, y: 67 };
+						updated.size = { width: 100, height: 33 };
 					} else {
 						updated.position = { x: 0, y: 0 };
 						updated.size = { width: 100, height: 100 };
 					}
 					return updated;
 				}),
+			}));
+		},
+		[pushState],
+	);
+
+	const handleAnnotationImageDataChange = useCallback(
+		(id: string, imageData: ImageData) => {
+			pushState((prev) => ({
+				annotationRegions: prev.annotationRegions.map((region) =>
+					region.id === id ? { ...region, imageData } : region,
+				),
 			}));
 		},
 		[pushState],
@@ -1153,6 +1282,55 @@ export default function VideoEditor() {
 		}
 	}, [selectedWebcamFocusId, webcamFocusRegions]);
 
+	useEffect(() => {
+		if (selectedWebcamSegmentId && !webcamSegments.some((s) => s.id === selectedWebcamSegmentId)) {
+			setSelectedWebcamSegmentId(null);
+		}
+	}, [selectedWebcamSegmentId, webcamSegments]);
+
+	const handleGenerateSubtitles = useCallback(async () => {
+		if (!videoSourcePath) {
+			toast.error("No video loaded");
+			return;
+		}
+		setIsGeneratingSubtitles(true);
+		try {
+			const result = await window.electronAPI.generateSubtitles(videoSourcePath);
+			if (result.success && result.subtitles) {
+				pushState({ subtitleRegions: result.subtitles, showSubtitles: true });
+				toast.success(`Generated ${result.subtitles.length} subtitles`);
+			} else {
+				toast.error(result.error ?? "Subtitle generation failed");
+			}
+		} catch (err) {
+			toast.error("Subtitle generation failed: " + String(err));
+		} finally {
+			setIsGeneratingSubtitles(false);
+		}
+	}, [videoSourcePath, pushState]);
+
+	const handleClearSubtitles = useCallback(() => {
+		pushState({ subtitleRegions: [] });
+	}, [pushState]);
+
+	const handleSubtitleTextChange = useCallback(
+		(id: string, text: string) => {
+			pushState((prev) => ({
+				subtitleRegions: prev.subtitleRegions.map((s) =>
+					s.id === id ? { ...s, text } : s,
+				),
+			}));
+		},
+		[pushState],
+	);
+
+	const handleSubtitleStyleChange = useCallback(
+		(style: Partial<import("./types").SubtitleStyle>) => {
+			pushState((prev) => ({ subtitleStyle: { ...prev.subtitleStyle, ...style } }));
+		},
+		[pushState],
+	);
+
 	const handleShowExportedFile = useCallback(async (filePath: string) => {
 		try {
 			const result = await window.electronAPI.revealInFolder(filePath);
@@ -1246,7 +1424,7 @@ export default function VideoEditor() {
 					// GIF Export
 					const gifExporter = new GifExporter({
 						videoUrl: videoPath,
-						webcamVideoUrl: webcamVideoPath || undefined,
+						webcamSegments: webcamSegments.length > 0 ? webcamSegments : undefined,
 						width: settings.gifConfig.width,
 						height: settings.gifConfig.height,
 						frameRate: settings.gifConfig.frameRate,
@@ -1271,10 +1449,14 @@ export default function VideoEditor() {
 						webcamPosition,
 						webcamCornerPreset,
 						webcamStackPosition,
-						webcamFocusRegions: webcamVideoPath ? webcamFocusRegions : undefined,
+						webcamFocusZoom,
+						webcamFocusRegions: hasWebcam ? webcamFocusRegions : undefined,
 						previewWidth,
 						previewHeight,
 						cursorTelemetry,
+						subtitleRegions,
+						showSubtitles,
+						subtitleStyle,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -1384,7 +1566,7 @@ export default function VideoEditor() {
 
 					const exporter = new VideoExporter({
 						videoUrl: videoPath,
-						webcamVideoUrl: webcamVideoPath || undefined,
+						webcamSegments: webcamSegments.length > 0 ? webcamSegments : undefined,
 						width: exportWidth,
 						height: exportHeight,
 						frameRate: 60,
@@ -1408,10 +1590,14 @@ export default function VideoEditor() {
 						webcamPosition,
 						webcamCornerPreset,
 						webcamStackPosition,
-						webcamFocusRegions: webcamVideoPath ? webcamFocusRegions : undefined,
+						webcamFocusZoom,
+						webcamFocusRegions: hasWebcam ? webcamFocusRegions : undefined,
 						previewWidth,
 						previewHeight,
 						cursorTelemetry,
+						subtitleRegions,
+						showSubtitles,
+						subtitleStyle,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -1462,7 +1648,7 @@ export default function VideoEditor() {
 		},
 		[
 			videoPath,
-			webcamVideoPath,
+			webcamSegments,
 			wallpaper,
 			zoomRegions,
 			trimRegions,
@@ -1520,12 +1706,12 @@ export default function VideoEditor() {
 			gifConfig:
 				exportFormat === "gif"
 					? {
-							frameRate: gifFrameRate,
-							loop: gifLoop,
-							sizePreset: gifSizePreset,
-							width: gifDimensions.width,
-							height: gifDimensions.height,
-						}
+						frameRate: gifFrameRate,
+						loop: gifLoop,
+						sizePreset: gifSizePreset,
+						width: gifDimensions.width,
+						height: gifDimensions.height,
+					}
 					: undefined,
 		};
 
@@ -1651,26 +1837,27 @@ export default function VideoEditor() {
 											aspectRatio:
 												aspectRatio === "native"
 													? getNativeAspectRatioValue(
-															videoPlaybackRef.current?.video?.videoWidth || 1920,
-															videoPlaybackRef.current?.video?.videoHeight || 1080,
-															cropRegion,
-														)
+														videoPlaybackRef.current?.video?.videoWidth || 1920,
+														videoPlaybackRef.current?.video?.videoHeight || 1080,
+														cropRegion,
+													)
 													: getAspectRatioValue(aspectRatio),
 										}}
 									>
 										<VideoPlayback
-											key={`${videoPath || "no-video"}:${webcamVideoPath || "no-webcam"}`}
+											key={videoPath || "no-video"}
 											aspectRatio={aspectRatio}
 											ref={videoPlaybackRef}
 											videoPath={videoPath || ""}
-											webcamVideoPath={webcamVideoPath || undefined}
+											webcamSegments={webcamSegments}
 											webcamLayoutPreset={webcamLayoutPreset}
 											webcamMaskShape={webcamMaskShape}
 											webcamSizePreset={webcamSizePreset}
 											webcamPosition={webcamPosition}
 											webcamCornerPreset={webcamCornerPreset}
 											webcamStackPosition={webcamStackPosition}
-											webcamFocusRegions={webcamVideoPath ? webcamFocusRegions : undefined}
+											webcamFocusZoom={webcamFocusZoom}
+											webcamFocusRegions={hasWebcam ? webcamFocusRegions : undefined}
 											onWebcamPositionChange={(pos) => updateState({ webcamPosition: pos, webcamCornerPreset: null })}
 											onWebcamPositionDragEnd={commitState}
 											onDurationChange={setDuration}
@@ -1700,7 +1887,10 @@ export default function VideoEditor() {
 											onAnnotationPositionChange={handleAnnotationPositionChange}
 											onAnnotationSizeChange={handleAnnotationSizeChange}
 											cursorTelemetry={cursorTelemetry}
-										/>
+										subtitleRegions={subtitleRegions}
+										showSubtitles={showSubtitles}
+										subtitleStyle={subtitleStyle}
+									/>
 									</div>
 								</div>
 								{/* Playback controls */}
@@ -1757,7 +1947,12 @@ export default function VideoEditor() {
 									onWebcamFocusDelete={handleWebcamFocusDelete}
 									selectedWebcamFocusId={selectedWebcamFocusId}
 									onSelectWebcamFocus={handleSelectWebcamFocus}
-									hasWebcam={Boolean(webcamVideoPath)}
+									webcamSegments={webcamSegments}
+									onWebcamSegmentSpanChange={handleWebcamSegmentSpanChange}
+									onWebcamSegmentDelete={handleWebcamSegmentDelete}
+									selectedWebcamSegmentId={selectedWebcamSegmentId}
+									onSelectWebcamSegment={handleSelectWebcamSegment}
+									hasWebcam={hasWebcam}
 									annotationRegions={annotationRegions}
 									onAnnotationAdded={handleAnnotationAdded}
 									onAnnotationSpanChange={handleAnnotationSpanChange}
@@ -1817,9 +2012,11 @@ export default function VideoEditor() {
 						cropRegion={cropRegion}
 						onCropChange={(r) => pushState({ cropRegion: r })}
 						aspectRatio={aspectRatio}
-						hasWebcam={Boolean(webcamVideoPath)}
+						hasWebcam={hasWebcam}
 						onAddWebcamVideo={handleAddWebcamVideo}
 						onRemoveWebcamVideo={handleRemoveWebcamVideo}
+						webcamSyncOffsetMs={webcamSyncOffsetMs}
+						onWebcamSyncOffsetMsChange={handleWebcamSyncOffsetChange}
 						webcamLayoutPreset={webcamLayoutPreset}
 						onWebcamLayoutPresetChange={(preset) =>
 							pushState({
@@ -1833,6 +2030,8 @@ export default function VideoEditor() {
 						}
 						webcamStackPosition={webcamStackPosition}
 						onWebcamStackPositionChange={(pos) => pushState({ webcamStackPosition: pos })}
+						webcamFocusZoom={webcamFocusZoom}
+						onWebcamFocusZoomChange={(zoom) => pushState({ webcamFocusZoom: zoom })}
 						webcamMaskShape={webcamMaskShape}
 						onWebcamMaskShapeChange={(shape) => pushState({ webcamMaskShape: shape })}
 						webcamSizePreset={webcamSizePreset}
@@ -1864,10 +2063,10 @@ export default function VideoEditor() {
 							GIF_SIZE_PRESETS,
 							aspectRatio === "native"
 								? getNativeAspectRatioValue(
-										videoPlaybackRef.current?.video?.videoWidth || 1920,
-										videoPlaybackRef.current?.video?.videoHeight || 1080,
-										cropRegion,
-									)
+									videoPlaybackRef.current?.video?.videoWidth || 1920,
+									videoPlaybackRef.current?.video?.videoHeight || 1080,
+									cropRegion,
+								)
 								: getAspectRatioValue(aspectRatio),
 						)}
 						onExport={handleOpenExportDialog}
@@ -1876,6 +2075,9 @@ export default function VideoEditor() {
 						onAnnotationContentChange={handleAnnotationContentChange}
 						onAnnotationTypeChange={handleAnnotationTypeChange}
 						onAnnotationStyleChange={handleAnnotationStyleChange}
+						onAnnotationPositionChange={handleAnnotationPositionChange}
+						onAnnotationSizeChange={handleAnnotationSizeChange}
+						onAnnotationImageDataChange={handleAnnotationImageDataChange}
 						onAnnotationFigureDataChange={handleAnnotationFigureDataChange}
 						onAnnotationCaptionDataChange={handleAnnotationCaptionDataChange}
 						onAnnotationMarkerDataChange={handleAnnotationMarkerDataChange}
@@ -1890,6 +2092,15 @@ export default function VideoEditor() {
 						onSpeedDelete={handleSpeedDelete}
 						unsavedExport={unsavedExport}
 						onSaveUnsavedExport={handleSaveUnsavedExport}
+						subtitleRegions={subtitleRegions}
+						showSubtitles={showSubtitles}
+						onShowSubtitlesChange={(v) => pushState({ showSubtitles: v })}
+						subtitleStyle={subtitleStyle}
+						onSubtitleStyleChange={handleSubtitleStyleChange}
+						onSubtitleTextChange={handleSubtitleTextChange}
+						onGenerateSubtitles={handleGenerateSubtitles}
+						isGeneratingSubtitles={isGeneratingSubtitles}
+						onClearSubtitles={handleClearSubtitles}
 					/>
 				</div>
 			</div>

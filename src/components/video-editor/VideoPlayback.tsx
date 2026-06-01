@@ -36,7 +36,10 @@ import { AnnotationOverlay } from "./AnnotationOverlay";
 import {
 	type AnnotationRegion,
 	type SpeedRegion,
+	type SubtitleItem,
+	type SubtitleStyle,
 	type TrimRegion,
+	type WebcamSegment,
 	ZOOM_DEPTH_SCALES,
 	type ZoomDepth,
 	type ZoomFocus,
@@ -66,7 +69,7 @@ import {
 
 interface VideoPlaybackProps {
 	videoPath: string;
-	webcamVideoPath?: string;
+	webcamSegments?: WebcamSegment[];
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape?: import("./types").WebcamMaskShape;
 	webcamSizePreset?: import("./types").WebcamSizePreset;
@@ -74,6 +77,7 @@ interface VideoPlaybackProps {
 	webcamCornerPreset?: import("./types").WebcamCornerPreset | null;
 	webcamStackPosition?: import("./types").WebcamStackPosition | null;
 	webcamFocusRegions?: import("./types").WebcamFocusRegion[];
+	webcamFocusZoom?: number;
 	onWebcamPositionChange?: (position: { cx: number; cy: number }) => void;
 	onWebcamPositionDragEnd?: () => void;
 	onDurationChange: (duration: number) => void;
@@ -104,6 +108,9 @@ interface VideoPlaybackProps {
 	onAnnotationPositionChange?: (id: string, position: { x: number; y: number }) => void;
 	onAnnotationSizeChange?: (id: string, size: { width: number; height: number }) => void;
 	cursorTelemetry?: import("./types").CursorTelemetryPoint[];
+	subtitleRegions?: SubtitleItem[];
+	showSubtitles?: boolean;
+	subtitleStyle?: SubtitleStyle;
 }
 
 export interface VideoPlaybackRef {
@@ -120,7 +127,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 	(
 		{
 			videoPath,
-			webcamVideoPath,
+			webcamSegments = [],
 			webcamLayoutPreset,
 			webcamMaskShape,
 			webcamSizePreset,
@@ -128,6 +135,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			webcamCornerPreset,
 			webcamStackPosition,
 			webcamFocusRegions = [],
+			webcamFocusZoom = 1,
 			onWebcamPositionChange,
 			onWebcamPositionDragEnd,
 			onDurationChange,
@@ -158,6 +166,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			onAnnotationPositionChange,
 			onAnnotationSizeChange,
 			cursorTelemetry = [],
+			subtitleRegions = [],
+			showSubtitles = true,
+			subtitleStyle,
 		},
 		ref,
 	) => {
@@ -1052,6 +1063,18 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			[webcamLayoutPreset],
 		);
 
+		const activeSegment = useMemo(() => {
+			if (!webcamSegments.length) return null;
+			const currentMs = currentTime * 1000;
+			return (
+				webcamSegments.find((s) => currentMs >= s.startMs && currentMs < s.startMs + s.durationMs) ??
+				null
+			);
+		}, [webcamSegments, currentTime]);
+
+		const activeWebcamPath = activeSegment?.videoPath ?? null;
+		const activeWebcamOffsetSec = activeSegment ? activeSegment.startMs / 1000 : 0;
+
 		const activeFocusRegion = useMemo(() => {
 			if (!webcamFocusRegions.length) return null;
 			const currentMs = currentTime * 1000;
@@ -1065,11 +1088,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			const { width: stageW, height: stageH } = stageSizeRef.current;
 			if (!stageW || !stageH) return null;
 			if (webcamLayoutPreset === "vertical-stack") {
+				const t = (a: number, b: number) => a + (b - a) * webcamFocusZoom;
 				return {
-					x: 0,
-					y: 0,
-					width: stageW,
-					height: stageH,
+					x: Math.round(t(webcamLayout.x, 0)),
+					y: Math.round(t(webcamLayout.y, 0)),
+					width: Math.round(t(webcamLayout.width, stageW)),
+					height: Math.round(t(webcamLayout.height, stageH)),
 					borderRadius: 0,
 					maskShape: webcamLayout.maskShape,
 				};
@@ -1095,11 +1119,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				maskShape: focusShape ?? webcamLayout.maskShape,
 			};
 			// eslint-disable-next-line react-hooks/exhaustive-deps
-		}, [webcamDimensions, webcamLayout, activeFocusRegion, webcamMaskShape, webcamLayoutPreset]);
+		}, [webcamDimensions, webcamLayout, activeFocusRegion, webcamMaskShape, webcamLayoutPreset, webcamFocusZoom]);
 
 		useEffect(() => {
 			const webcamVideo = webcamVideoRef.current;
-			if (!webcamVideo || !webcamVideoPath) {
+			if (!webcamVideo || !activeWebcamPath) {
 				setWebcamDimensions(null);
 				return;
 			}
@@ -1118,14 +1142,16 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			return () => {
 				webcamVideo.removeEventListener("loadedmetadata", handleLoadedMetadata);
 			};
-		}, [webcamVideoPath]);
+		}, [activeWebcamPath]);
 
 		useEffect(() => {
 			const webcamVideo = webcamVideoRef.current;
-			if (!webcamVideo || !webcamVideoPath) {
+			if (!webcamVideo || !activeWebcamPath) {
+				if (webcamVideo) webcamVideo.pause();
 				return;
 			}
 
+			const webcamTime = Math.max(0, currentTime - activeWebcamOffsetSec);
 			const activeSpeedRegion =
 				speedRegions.find(
 					(region) => currentTime * 1000 >= region.startMs && currentTime * 1000 < region.endMs,
@@ -1134,30 +1160,30 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 			if (!isPlaying) {
 				webcamVideo.pause();
-				if (Math.abs(webcamVideo.currentTime - currentTime) > 0.05) {
-					webcamVideo.currentTime = currentTime;
+				if (Math.abs(webcamVideo.currentTime - webcamTime) > 0.05) {
+					webcamVideo.currentTime = webcamTime;
 				}
 				return;
 			}
 
-			if (Math.abs(webcamVideo.currentTime - currentTime) > 0.15) {
-				webcamVideo.currentTime = currentTime;
+			if (Math.abs(webcamVideo.currentTime - webcamTime) > 0.15) {
+				webcamVideo.currentTime = webcamTime;
 			}
 
 			webcamVideo.play().catch(() => {
 				// Ignore webcam autoplay restoration failures.
 			});
-		}, [currentTime, isPlaying, speedRegions, webcamVideoPath]);
+		}, [currentTime, isPlaying, speedRegions, activeWebcamPath, activeWebcamOffsetSec]);
 
 		useEffect(() => {
 			const webcamVideo = webcamVideoRef.current;
-			if (!webcamVideo || !webcamVideoPath) {
+			if (!webcamVideo || !activeWebcamPath) {
 				return;
 			}
 
 			webcamVideo.pause();
 			webcamVideo.currentTime = 0;
-		}, [webcamVideoPath]);
+		}, [activeWebcamPath]);
 
 		useEffect(() => {
 			let mounted = true;
@@ -1271,7 +1297,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						transition: "filter 0.35s ease-in-out",
 					}}
 				/>
-				{webcamVideoPath &&
+				{activeWebcamPath &&
 					(() => {
 						const activeRect =
 							isInFocusRegion && focusedWebcamRect ? focusedWebcamRect : webcamLayout;
@@ -1297,7 +1323,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							>
 								<video
 									ref={webcamVideoRef}
-									src={webcamVideoPath}
+									src={activeWebcamPath}
 									className={`w-full h-full object-cover ${webcamLayoutPreset === "picture-in-picture" && !isInFocusRegion ? "cursor-grab active:cursor-grabbing" : "pointer-events-none"}`}
 									style={{
 										borderRadius: useClipPath ? 0 : (activeRect?.borderRadius ?? 0),
@@ -1306,11 +1332,16 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 										backgroundColor: "#000",
 										transition: "border-radius 0.35s ease-in-out",
 									}}
+									onLoadedMetadata={() => {
+										const v = webcamVideoRef.current;
+										if (v && v.videoWidth > 0 && v.videoHeight > 0) {
+											setWebcamDimensions({ width: v.videoWidth, height: v.videoHeight });
+										}
+									}}
 									onPointerDown={handleWebcamPointerDown}
 									onPointerMove={handleWebcamPointerMove}
 									onPointerUp={handleWebcamPointerUp}
 									onPointerLeave={handleWebcamPointerUp}
-									muted
 									preload="metadata"
 									playsInline
 								/>
@@ -1381,6 +1412,99 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						})()}
 					</div>
 				)}
+				{showSubtitles && subtitleRegions.length > 0 && (() => {
+					const timeMs = Math.round(currentTime * 1000);
+					const active = subtitleRegions.find(
+						(s) => timeMs >= s.startMs && timeMs <= s.endMs,
+					);
+					if (!active) return null;
+					const st = subtitleStyle;
+					const template = st?.template ?? "classic";
+					const isBottom = !st || st.position !== "top";
+					const offset = st ? `${st.bottomOffset}%` : "8%";
+					const fontColor = st?.fontColor ?? "#ffffff";
+					const fontSize = st ? `${st.fontSize}px` : "32px";
+					const fontFamily = st?.fontFamily ?? "Inter, Arial, sans-serif";
+					const bgColor = st?.backgroundColor ?? "rgba(0,0,0,0.7)";
+
+					let inner: React.ReactNode;
+					if (template === "minimal") {
+						inner = (
+							<span style={{ color: fontColor, fontSize, fontFamily, fontWeight: 600, textShadow: "0 2px 8px rgba(0,0,0,0.8),0 4px 16px rgba(0,0,0,0.6)", lineHeight: 1.3 }}>
+								{active.text}
+							</span>
+						);
+					} else if (template === "bold") {
+						inner = (
+							<span style={{ color: fontColor, fontSize, fontFamily, fontWeight: 900, textShadow: "0 4px 20px rgba(0,0,0,0.9)", textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 1.3 }}>
+								{active.text}
+							</span>
+						);
+					} else if (template === "boxed") {
+						inner = (
+							<span style={{ display: "block", background: "rgba(0,0,0,0.9)", color: fontColor, fontSize, fontFamily, fontWeight: 700, padding: "6px 20px", letterSpacing: "0.02em", lineHeight: 1.3 }}>
+								{active.text}
+							</span>
+						);
+					} else if (template === "cinematic") {
+						inner = (
+							<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px" }}>
+								<div style={{ width: "50px", height: "1px", background: fontColor, opacity: 0.6 }} />
+								<span style={{ color: fontColor, fontSize, fontFamily, fontWeight: 500, letterSpacing: "0.15em", textTransform: "uppercase", lineHeight: 1.3 }}>
+									{active.text}
+								</span>
+								<div style={{ width: "50px", height: "1px", background: fontColor, opacity: 0.6 }} />
+							</div>
+						);
+					} else if (template === "outline") {
+						inner = (
+							<span style={{ color: "transparent", WebkitTextStroke: `2px ${fontColor}`, fontSize, fontFamily, fontWeight: 900, textShadow: "0 4px 20px rgba(0,0,0,0.6)", textTransform: "uppercase", letterSpacing: "-0.02em", lineHeight: 1.3 }}>
+								{active.text}
+							</span>
+						);
+					} else if (template === "glow") {
+						const g = "rgba(255,255,255,0.8)";
+						inner = (
+							<span style={{ color: fontColor, fontSize, fontFamily, fontWeight: 800, textShadow: `0 0 20px ${g},0 0 40px ${g},0 0 60px ${g}`, letterSpacing: "-0.02em", lineHeight: 1.3 }}>
+								{active.text}
+							</span>
+						);
+					} else if (template === "stacked") {
+						inner = (
+							<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
+								{active.text.split(" ").map((word, i) => (
+									<span key={i} style={{ color: fontColor, fontSize, fontFamily, fontWeight: 800, textShadow: "0 2px 12px rgba(0,0,0,0.8)", textTransform: "uppercase", letterSpacing: "-0.03em", lineHeight: 0.95 }}>
+										{word}
+									</span>
+								))}
+							</div>
+						);
+					} else if (template === "highlight") {
+						inner = (
+							<span style={{ display: "block", background: bgColor, padding: "4px 16px", borderRadius: "6px", color: "#FFD700", fontSize, fontFamily, fontWeight: 700, lineHeight: 1.3 }}>
+								{active.text}
+							</span>
+						);
+					} else {
+						// classic
+						inner = (
+							<span style={{ display: "block", background: bgColor, color: fontColor, fontSize, fontFamily, padding: "4px 16px", borderRadius: "6px", lineHeight: 1.3, fontWeight: 600 }}>
+								{active.text}
+							</span>
+						);
+					}
+
+					return (
+						<div
+							className="absolute left-0 right-0 flex justify-center px-4 pointer-events-none"
+							style={{ [isBottom ? "bottom" : "top"]: offset, zIndex: 40 }}
+						>
+							<div style={{ maxWidth: "90%", textAlign: "center" }}>
+								{inner}
+							</div>
+						</div>
+					);
+				})()}
 				<video
 					ref={videoRef}
 					src={videoPath}

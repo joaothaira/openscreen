@@ -12,7 +12,8 @@
 		"pressTrim": "Presiona T para agregar recorte",
 		"pressAnnotation": "Presiona A para agregar anotación",
 		"pressSpeed": "Presiona S para agregar velocidad",
-		"pressWebcamFocus": "Clic para agregar enfoque de cámara"
+		"pressWebcamFocus": "Clic para agregar enfoque de cámara",
+		"webcamSegment": "Clip de cámara"
 	},
 	"labels": {
 		"pan": "Desplazar",
@@ -23,7 +24,8 @@
 		"annotationItem": "Anotación",
 		"imageItem": "Imagen",
 		"emptyText": "Texto vacío",
-		"webcamFocusItem": "Enfoque cam {{index}}"
+		"webcamFocusItem": "Enfoque cam {{index}}",
+		"webcamSegmentItem": "Clip {{index}}"
 	},
 	"emptyState": {
 		"noVideo": "No hay video cargado",

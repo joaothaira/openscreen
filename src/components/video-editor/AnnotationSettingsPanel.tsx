@@ -3,7 +3,6 @@ import {
 	AlignCenter,
 	AlignLeft,
 	AlignRight,
-	Bold,
 	ChevronDown,
 	Image as ImageIcon,
 	Info,
@@ -26,6 +25,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useScopedT } from "@/contexts/I18nContext";
@@ -40,6 +40,8 @@ import type {
 	CaptionData,
 	CaptionGradientDirection,
 	FigureData,
+	ImageAnimationType,
+	ImageData,
 	MarkerData,
 	MarkerDirection,
 } from "./types";
@@ -49,11 +51,38 @@ interface AnnotationSettingsPanelProps {
 	onContentChange: (content: string) => void;
 	onTypeChange: (type: AnnotationType) => void;
 	onStyleChange: (style: Partial<AnnotationRegion["style"]>) => void;
+	onPositionChange?: (position: { x: number; y: number }) => void;
+	onSizeChange?: (size: { width: number; height: number }) => void;
+	onImageDataChange?: (imageData: ImageData) => void;
 	onFigureDataChange?: (figureData: FigureData) => void;
 	onCaptionDataChange?: (captionData: CaptionData) => void;
 	onMarkerDataChange?: (markerData: MarkerData) => void;
 	onDelete: () => void;
 }
+
+const IMAGE_PRESETS = [
+	{
+		label: "Full width",
+		icon: "▬",
+		position: { x: 5, y: 57 },
+		size: { width: 90, height: 38 },
+		borderRadius: 10,
+	},
+	{
+		label: "Card",
+		icon: "▪",
+		position: { x: 12, y: 50 },
+		size: { width: 76, height: 43 },
+		borderRadius: 24,
+	},
+	{
+		label: "Phone",
+		icon: "▯",
+		position: { x: 25, y: 37 },
+		size: { width: 50, height: 55 },
+		borderRadius: 28,
+	},
+];
 
 const FONT_FAMILIES = [
 	{ value: "system-ui, -apple-system, sans-serif", labelKey: "classic" },
@@ -64,15 +93,43 @@ const FONT_FAMILIES = [
 	{ value: "Arial, sans-serif", labelKey: "simple" },
 	{ value: "Verdana, sans-serif", labelKey: "modern" },
 	{ value: "Trebuchet MS, sans-serif", labelKey: "clean" },
+	{ value: "'Saira Stencil', sans-serif", labelKey: "stencil" },
 ];
 
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 80, 96, 128];
+
+const FONT_WEIGHTS = [
+	{ value: "100", label: "Thin" },
+	{ value: "200", label: "Extra Light" },
+	{ value: "300", label: "Light" },
+	{ value: "400", label: "Regular" },
+	{ value: "500", label: "Medium" },
+	{ value: "600", label: "Semi Bold" },
+	{ value: "700", label: "Bold" },
+	{ value: "800", label: "Extra Bold" },
+	{ value: "900", label: "Black" },
+];
+
+const FONT_STRETCHES = [
+	{ value: "ultra-condensed", label: "Ultra Condensed" },
+	{ value: "extra-condensed", label: "Extra Condensed" },
+	{ value: "condensed", label: "Condensed" },
+	{ value: "semi-condensed", label: "Semi Condensed" },
+	{ value: "normal", label: "Normal" },
+	{ value: "semi-expanded", label: "Semi Expanded" },
+	{ value: "expanded", label: "Expanded" },
+	{ value: "extra-expanded", label: "Extra Expanded" },
+	{ value: "ultra-expanded", label: "Ultra Expanded" },
+];
 
 export function AnnotationSettingsPanel({
 	annotation,
 	onContentChange,
 	onTypeChange,
 	onStyleChange,
+	onPositionChange,
+	onSizeChange,
+	onImageDataChange,
 	onFigureDataChange,
 	onCaptionDataChange,
 	onMarkerDataChange,
@@ -91,6 +148,7 @@ export function AnnotationSettingsPanel({
 		simple: t("fontStyles.simple"),
 		modern: t("fontStyles.modern"),
 		clean: t("fontStyles.clean"),
+		stencil: t("fontStyles.stencil"),
 	};
 
 	// Load custom fonts on mount
@@ -308,25 +366,56 @@ export function AnnotationSettingsPanel({
 								/>
 							</div>
 
+							{/* Weight & Stretch */}
+							<div className="grid grid-cols-2 gap-2">
+								<div>
+									<label className="text-xs font-medium text-slate-200 mb-2 block">
+										Weight
+									</label>
+									<Select
+										value={annotation.style.fontWeight}
+										onValueChange={(v) => onStyleChange({ fontWeight: v })}
+									>
+										<SelectTrigger className="w-full bg-white/5 border-white/10 text-slate-200 h-9 text-xs">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent className="bg-[#1a1a1c] border-white/10 text-slate-200">
+											{FONT_WEIGHTS.map((w) => (
+												<SelectItem key={w.value} value={w.value}>
+													{w.label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								<div>
+									<label className="text-xs font-medium text-slate-200 mb-2 block">
+										Width
+									</label>
+									<Select
+										value={annotation.style.fontStretch}
+										onValueChange={(v) => onStyleChange({ fontStretch: v })}
+									>
+										<SelectTrigger className="w-full bg-white/5 border-white/10 text-slate-200 h-9 text-xs">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent className="bg-[#1a1a1c] border-white/10 text-slate-200">
+											{FONT_STRETCHES.map((s) => (
+												<SelectItem key={s.value} value={s.value}>
+													{s.label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+
 							{/* Formatting Toggles */}
 							<div className="flex items-center justify-between gap-2">
 								<ToggleGroup
 									type="multiple"
 									className="justify-start bg-white/5 p-1 rounded-lg border border-white/5"
 								>
-									<ToggleGroupItem
-										value="bold"
-										aria-label="Toggle bold"
-										data-state={annotation.style.fontWeight === "bold" ? "on" : "off"}
-										onClick={() =>
-											onStyleChange({
-												fontWeight: annotation.style.fontWeight === "bold" ? "normal" : "bold",
-											})
-										}
-										className="h-8 w-8 data-[state=on]:bg-[#34B27B] data-[state=on]:text-white text-slate-400 hover:bg-white/5 hover:text-slate-200"
-									>
-										<Bold className="h-4 w-4" />
-									</ToggleGroupItem>
 									<ToggleGroupItem
 										value="italic"
 										aria-label="Toggle italic"
@@ -509,6 +598,185 @@ export function AnnotationSettingsPanel({
 							</div>
 						)}
 
+						{/* Layout presets */}
+						<div>
+							<label className="text-xs font-medium text-slate-200 mb-2 block">
+								Layout preset
+							</label>
+							<div className="grid grid-cols-3 gap-2">
+								{IMAGE_PRESETS.map((preset) => (
+									<button
+										key={preset.label}
+										type="button"
+										onClick={() => {
+											onPositionChange?.(preset.position);
+											onSizeChange?.(preset.size);
+											onStyleChange({ borderRadius: preset.borderRadius });
+										}}
+										className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 text-slate-400 hover:text-slate-200 transition-all"
+									>
+										{preset.label === "Full width" && (
+											<svg width="32" height="20" viewBox="0 0 32 20" fill="none">
+												<rect x="1" y="5" width="30" height="10" rx="2" fill="currentColor" opacity="0.6" />
+											</svg>
+										)}
+										{preset.label === "Card" && (
+											<svg width="24" height="20" viewBox="0 0 24 20" fill="none">
+												<rect x="1" y="1" width="22" height="18" rx="4" fill="currentColor" opacity="0.6" />
+											</svg>
+										)}
+										{preset.label === "Phone" && (
+											<svg width="16" height="20" viewBox="0 0 16 20" fill="none">
+												<rect x="1" y="1" width="14" height="18" rx="4" fill="currentColor" opacity="0.6" />
+											</svg>
+										)}
+										<span className="text-[10px] font-medium">{preset.label}</span>
+									</button>
+								))}
+							</div>
+						</div>
+
+						{/* Border radius */}
+						<div>
+							<label className="text-xs font-medium text-slate-200 mb-2 block">
+								Corner radius: {annotation.style.borderRadius ?? 0}px
+							</label>
+							<Slider
+								min={0}
+								max={80}
+								step={2}
+								value={[annotation.style.borderRadius ?? 0]}
+								onValueChange={([v]) => onStyleChange({ borderRadius: v })}
+								className="w-full"
+							/>
+						</div>
+
+						{/* Entrance animation */}
+						{(() => {
+							const imgData = annotation.imageData ?? { animationType: "none" as ImageAnimationType, animationDuration: 500 };
+							const update = (patch: Partial<ImageData>) =>
+								onImageDataChange?.({ ...imgData, ...patch });
+							const ANIM_PRESETS: { type: ImageAnimationType; label: string; icon: React.ReactNode }[] = [
+								{
+									type: "none",
+									label: "None",
+									icon: (
+										<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+											<rect x="2" y="2" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" opacity="0.6" />
+										</svg>
+									),
+								},
+								{
+									type: "fade",
+									label: "Fade",
+									icon: (
+										<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+											<rect x="2" y="2" width="14" height="14" rx="2" fill="url(#fadeGrad)" opacity="0.8" />
+											<defs>
+												<linearGradient id="fadeGrad" x1="2" y1="2" x2="16" y2="2" gradientUnits="userSpaceOnUse">
+													<stop offset="0%" stopColor="currentColor" stopOpacity="0.1" />
+													<stop offset="100%" stopColor="currentColor" stopOpacity="0.9" />
+												</linearGradient>
+											</defs>
+										</svg>
+									),
+								},
+								{
+									type: "slide-up",
+									label: "Up",
+									icon: (
+										<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+											<path d="M9 14 L9 4 M9 4 L5 8 M9 4 L13 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+										</svg>
+									),
+								},
+								{
+									type: "slide-down",
+									label: "Down",
+									icon: (
+										<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+											<path d="M9 4 L9 14 M9 14 L5 10 M9 14 L13 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+										</svg>
+									),
+								},
+								{
+									type: "slide-left",
+									label: "Left",
+									icon: (
+										<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+											<path d="M14 9 L4 9 M4 9 L8 5 M4 9 L8 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+										</svg>
+									),
+								},
+								{
+									type: "slide-right",
+									label: "Right",
+									icon: (
+										<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+											<path d="M4 9 L14 9 M14 9 L10 5 M14 9 L10 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+										</svg>
+									),
+								},
+								{
+									type: "zoom",
+									label: "Zoom",
+									icon: (
+										<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+											<rect x="5" y="5" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
+											<rect x="2" y="2" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
+										</svg>
+									),
+								},
+							];
+							return (
+								<div>
+									<label className="text-xs font-medium text-slate-200 mb-2 block">
+										Entrance animation
+									</label>
+									<div className="grid grid-cols-4 gap-1.5 mb-3">
+										{ANIM_PRESETS.map((anim) => (
+											<button
+												key={anim.type}
+												type="button"
+												onClick={() => update({ animationType: anim.type })}
+												className={cn(
+													"flex flex-col items-center justify-center gap-1 py-2 rounded-lg border text-[10px] font-medium transition-all",
+													imgData.animationType === anim.type
+														? "bg-[#34B27B] border-[#34B27B] text-white"
+														: "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:border-white/20 hover:text-slate-200",
+												)}
+											>
+												{anim.icon}
+												{anim.label}
+											</button>
+										))}
+									</div>
+									{imgData.animationType !== "none" && (
+										<div>
+											<label className="text-xs font-medium text-slate-200 mb-2 block">
+												Duration: {imgData.animationDuration}ms
+											</label>
+											<Slider
+												min={100}
+												max={1500}
+												step={50}
+												value={[imgData.animationDuration]}
+												onValueChange={([v]) => update({ animationDuration: v })}
+												className="w-full"
+											/>
+										</div>
+									)}
+									<div className="flex items-center justify-between mt-1">
+										<span className="text-xs font-medium text-slate-200">Fade out</span>
+										<Switch
+											checked={imgData.fadeOut ?? false}
+											onCheckedChange={(v) => update({ fadeOut: v })}
+										/>
+									</div>
+								</div>
+							);
+						})()}
+
 						<p className="text-xs text-slate-500 text-center leading-relaxed">
 							{t("annotation.supportedFormats")}
 						</p>
@@ -654,6 +922,88 @@ export function AnnotationSettingsPanel({
 											onChange={(e) => update({ secondaryText: e.target.value })}
 											className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-slate-200 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#34B27B]"
 										/>
+									</div>
+									<div>
+										<label className="text-xs font-medium text-slate-200 mb-2 block">
+											{t("annotation.fontStyle")}
+										</label>
+										<Select
+											value={data.fontFamily}
+											onValueChange={(v) => update({ fontFamily: v })}
+										>
+											<SelectTrigger className="w-full bg-white/5 border-white/10 text-slate-200 h-9 text-xs">
+												<SelectValue placeholder={t("annotation.selectStyle")} />
+											</SelectTrigger>
+											<SelectContent className="bg-[#1a1a1c] border-white/10 text-slate-200 max-h-[300px]">
+												{FONT_FAMILIES.map((font) => (
+													<SelectItem
+														key={font.value}
+														value={font.value}
+														style={{ fontFamily: font.value }}
+													>
+														{fontStyleLabels[font.labelKey]}
+													</SelectItem>
+												))}
+												{customFonts.length > 0 && (
+													<>
+														<div className="px-2 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+															{t("annotation.customFonts")}
+														</div>
+														{customFonts.map((font) => (
+															<SelectItem
+																key={font.id}
+																value={font.fontFamily}
+																style={{ fontFamily: font.fontFamily }}
+															>
+																{font.name}
+															</SelectItem>
+														))}
+													</>
+												)}
+											</SelectContent>
+										</Select>
+									</div>
+									<div className="grid grid-cols-2 gap-2">
+										<div>
+											<label className="text-xs font-medium text-slate-200 mb-2 block">
+												Weight
+											</label>
+											<Select
+												value={data.fontWeight ?? "700"}
+												onValueChange={(v) => update({ fontWeight: v })}
+											>
+												<SelectTrigger className="w-full bg-white/5 border-white/10 text-slate-200 h-9 text-xs">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent className="bg-[#1a1a1c] border-white/10 text-slate-200">
+													{FONT_WEIGHTS.map((w) => (
+														<SelectItem key={w.value} value={w.value}>
+															{w.label}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										</div>
+										<div>
+											<label className="text-xs font-medium text-slate-200 mb-2 block">
+												Width
+											</label>
+											<Select
+												value={data.fontStretch ?? "normal"}
+												onValueChange={(v) => update({ fontStretch: v })}
+											>
+												<SelectTrigger className="w-full bg-white/5 border-white/10 text-slate-200 h-9 text-xs">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent className="bg-[#1a1a1c] border-white/10 text-slate-200">
+													{FONT_STRETCHES.map((s) => (
+														<SelectItem key={s.value} value={s.value}>
+															{s.label}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										</div>
 									</div>
 									<div className="grid grid-cols-2 gap-3">
 										<div>

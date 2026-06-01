@@ -114,10 +114,11 @@ function renderText(
 	ctx.rect(x, y, width, height);
 	ctx.clip();
 
-	const fontWeight = style.fontWeight === "bold" ? "bold" : "normal";
+	const fontWeight = style.fontWeight ?? "normal";
+	const fontStretch = style.fontStretch ?? "normal";
 	const fontStyle = style.fontStyle === "italic" ? "italic" : "normal";
 	const scaledFontSize = style.fontSize * scaleFactor;
-	ctx.font = `${fontStyle} ${fontWeight} ${scaledFontSize}px ${style.fontFamily}`;
+	ctx.font = `${fontStyle} ${fontWeight} ${fontStretch} ${scaledFontSize}px ${style.fontFamily}`;
 	ctx.textBaseline = "middle";
 
 	const containerPadding = 8 * scaleFactor;
@@ -222,32 +223,87 @@ async function renderImage(
 	y: number,
 	width: number,
 	height: number,
+	scaleFactor: number,
+	currentTimeMs: number,
 ): Promise<void> {
 	if (!annotation.content || !annotation.content.startsWith("data:image")) {
 		return;
 	}
 
+	const borderRadius = (annotation.style.borderRadius ?? 0) * scaleFactor;
+	const imgData = annotation.imageData;
+	const timeIntoAnnotation = currentTimeMs - annotation.startMs;
+	const totalDuration = annotation.endMs - annotation.startMs;
+	const animDuration = imgData?.animationDuration ?? 500;
+
+	const rawProgress = Math.min(1, Math.max(0, timeIntoAnnotation / animDuration));
+	const p = 1 - Math.pow(1 - rawProgress, 3);
+	const animType = imgData?.animationType ?? "none";
+
+	const fadeOutStart = Math.max(0, totalDuration - animDuration);
+	const exitRaw = imgData?.fadeOut
+		? Math.min(1, Math.max(0, (timeIntoAnnotation - fadeOutStart) / animDuration))
+		: 0;
+	const exitOpacity = imgData?.fadeOut ? 1 - exitRaw : 1;
+
+	const animOpacity = (animType !== "none" && rawProgress < 1 ? p : 1) * exitOpacity;
+	let offsetX = 0;
+	let offsetY = 0;
+	let zoomScale = 1;
+	if (animType !== "none" && rawProgress < 1) {
+		if (animType === "slide-up") offsetY = (1 - p) * height * 0.5;
+		else if (animType === "slide-down") offsetY = -(1 - p) * height * 0.5;
+		else if (animType === "slide-left") offsetX = (1 - p) * width * 0.5;
+		else if (animType === "slide-right") offsetX = -(1 - p) * width * 0.5;
+		else if (animType === "zoom") zoomScale = 0.75 + 0.25 * p;
+	}
+
 	return new Promise((resolve) => {
 		const img = new Image();
 		img.onload = () => {
-			// Preserve aspect ratio - contain the image within the bounds
+			ctx.save();
+			ctx.globalAlpha *= animOpacity;
+
+			// Clip to annotation bounds (static — slide/zoom stays inside the box)
+			ctx.beginPath();
+			if (borderRadius > 0) {
+				ctx.roundRect(x, y, width, height, borderRadius);
+			} else {
+				ctx.rect(x, y, width, height);
+			}
+			ctx.clip();
+
+			// object-cover: fill the box, center-crop
 			const imgAspect = img.width / img.height;
 			const boxAspect = width / height;
-
 			let drawWidth = width;
 			let drawHeight = height;
 			let drawX = x;
 			let drawY = y;
 
 			if (imgAspect > boxAspect) {
-				drawHeight = width / imgAspect;
-				drawY = y + (height - drawHeight) / 2;
-			} else {
 				drawWidth = height * imgAspect;
-				drawX = x + (width - drawWidth) / 2;
+				drawX = x - (drawWidth - width) / 2;
+			} else {
+				drawHeight = width / imgAspect;
+				drawY = y - (drawHeight - height) / 2;
+			}
+
+			// Apply animation offset / zoom
+			if (zoomScale !== 1) {
+				const cx = x + width / 2;
+				const cy = y + height / 2;
+				drawX = cx - (drawWidth * zoomScale) / 2;
+				drawY = cy - (drawHeight * zoomScale) / 2;
+				drawWidth *= zoomScale;
+				drawHeight *= zoomScale;
+			} else {
+				drawX += offsetX;
+				drawY += offsetY;
 			}
 
 			ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+			ctx.restore();
 			resolve();
 		};
 		img.onerror = () => {
@@ -399,7 +455,7 @@ async function renderCaption(
 	const wrapText = (text: string, fontSize: number): string[][] => {
 		const uppercased = text.toUpperCase();
 		const words = uppercased.split(" ").filter((w) => w.length > 0);
-		ctx.font = `bold ${fontSize}px ${data.fontFamily}`;
+		ctx.font = `${data.fontWeight ?? "700"} ${data.fontStretch ?? "normal"} ${fontSize}px ${data.fontFamily}`;
 		const spaceWidth = ctx.measureText(" ").width;
 		const lines: string[][] = [];
 		let currentLine: string[] = [];
@@ -460,7 +516,7 @@ async function renderCaption(
 		fontSize: number,
 		blockStartY: number,
 	) => {
-		ctx.font = `bold ${fontSize}px ${data.fontFamily}`;
+		ctx.font = `${data.fontWeight ?? "700"} ${data.fontStretch ?? "normal"} ${fontSize}px ${data.fontFamily}`;
 		ctx.textBaseline = "top";
 		const spaceWidth = ctx.measureText(" ").width;
 		const lineHeight = fontSize * 1.2;
@@ -582,7 +638,7 @@ export async function renderAnnotations(
 				break;
 
 			case "image":
-				await renderImage(ctx, annotation, x, y, width, height);
+				await renderImage(ctx, annotation, x, y, width, height, scaleFactor, currentTimeMs);
 				break;
 
 			case "figure":

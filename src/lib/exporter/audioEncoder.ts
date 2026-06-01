@@ -1,5 +1,5 @@
 import { WebDemuxer } from "web-demuxer";
-import type { SpeedRegion, TrimRegion } from "@/components/video-editor/types";
+import type { SpeedRegion, TrimRegion, WebcamSegment } from "@/components/video-editor/types";
 import type { VideoMuxer } from "./muxer";
 
 const AUDIO_BITRATE = 128_000;
@@ -497,6 +497,242 @@ export class AudioProcessor {
 			}
 		}
 		return offset;
+	}
+
+	/**
+	 * Process audio mixing main video + webcam segments.
+	 * Renders main audio (with trim/speed applied) then mixes webcam audio
+	 * via OfflineAudioContext and encodes the result directly to the muxer.
+	 */
+	async processWithWebcam(
+		muxer: VideoMuxer,
+		videoUrl: string,
+		webcamSegments: WebcamSegment[],
+		trimRegions: TrimRegion[] | undefined,
+		speedRegions: SpeedRegion[] | undefined,
+		exportDurationSec: number,
+	): Promise<void> {
+		const sortedTrims = trimRegions ? [...trimRegions].sort((a, b) => a.startMs - b.startMs) : [];
+		const sortedSpeeds = speedRegions
+			? [...speedRegions]
+					.filter((r) => r.endMs - r.startMs > MIN_SPEED_REGION_DELTA_MS)
+					.sort((a, b) => a.startMs - b.startMs)
+			: [];
+
+		// Render main audio through pitch-preserved path (handles both trim and speed correctly)
+		const mainBlob = await this.renderPitchPreservedTimelineAudio(videoUrl, sortedTrims, sortedSpeeds);
+
+		if (this.cancelled) return;
+
+		// Mix main audio with webcam segment audio in an OfflineAudioContext
+		const mixedBuffer = await this.mixWithWebcamAudio(
+			mainBlob,
+			webcamSegments,
+			sortedTrims,
+			exportDurationSec,
+		);
+
+		if (this.cancelled) return;
+
+		// Encode and mux the mixed AudioBuffer directly
+		await this.muxAudioBuffer(mixedBuffer, muxer);
+	}
+
+	private async mixWithWebcamAudio(
+		mainBlob: Blob,
+		webcamSegments: WebcamSegment[],
+		sortedTrims: TrimRegion[],
+		exportDurationSec: number,
+	): Promise<AudioBuffer> {
+		const sampleRate = 48_000;
+		const numChannels = 2;
+		// Extra 2s buffer to avoid clipping any trailing audio
+		const totalFrames = Math.ceil((exportDurationSec + 2) * sampleRate);
+		const offlineCtx = new OfflineAudioContext(numChannels, totalFrames, sampleRate);
+
+		// Schedule main audio at time 0
+		try {
+			const mainBuffer = await offlineCtx.decodeAudioData(await mainBlob.arrayBuffer());
+			const mainSource = offlineCtx.createBufferSource();
+			mainSource.buffer = mainBuffer;
+			mainSource.connect(offlineCtx.destination);
+			mainSource.start(0);
+		} catch (e) {
+			console.warn("[AudioProcessor] Could not decode main audio for mixing:", e);
+		}
+
+		// Schedule each webcam segment's audio at the correct export time
+		for (const segment of webcamSegments) {
+			if (this.cancelled) break;
+
+			let segBuffer: AudioBuffer | null = null;
+			try {
+				const response = await fetch(segment.videoPath);
+				segBuffer = await offlineCtx.decodeAudioData(await response.arrayBuffer());
+			} catch {
+				// Segment has no audio track or failed to decode — skip silently
+				continue;
+			}
+
+			const segStart = segment.startMs;
+			const segEnd = segment.startMs + segment.durationMs;
+			const intervals = this.getUntrimmedIntervals(segStart, segEnd, sortedTrims);
+
+			for (const [srcStart, srcEnd] of intervals) {
+				if (this.cancelled) break;
+
+				const exportStartSec = this.sourceToExportMs(srcStart, sortedTrims) / 1000;
+				// Webcam internal time at srcStart: same as preview's (currentTime - segment.startMs/1000)
+				const webcamOffsetFrames = Math.round(((srcStart - segStart) / 1000) * sampleRate);
+				const durationFrames = Math.round(((srcEnd - srcStart) / 1000) * sampleRate);
+
+				if (durationFrames <= 0) continue;
+
+				// Pre-slice the buffer for this interval instead of relying on the
+				// `duration` parameter of start(), which is unreliable in some Chromium builds.
+				const portionChannels = Math.min(segBuffer.numberOfChannels, numChannels);
+				const portionBuffer = offlineCtx.createBuffer(portionChannels, durationFrames, sampleRate);
+				for (let ch = 0; ch < portionChannels; ch++) {
+					const src = segBuffer.getChannelData(ch);
+					const dst = portionBuffer.getChannelData(ch);
+					for (let i = 0; i < durationFrames; i++) {
+						dst[i] = src[webcamOffsetFrames + i] ?? 0;
+					}
+				}
+
+				const source = offlineCtx.createBufferSource();
+				source.buffer = portionBuffer;
+				source.connect(offlineCtx.destination);
+				source.start(exportStartSec);
+			}
+		}
+
+		if (this.cancelled) {
+			return offlineCtx.createBuffer(numChannels, 1, sampleRate);
+		}
+
+		return offlineCtx.startRendering();
+	}
+
+	private async muxAudioBuffer(buffer: AudioBuffer, muxer: VideoMuxer): Promise<void> {
+		const sampleRate = buffer.sampleRate;
+		const numChannels = buffer.numberOfChannels;
+		const numFrames = buffer.length;
+		// 20ms frames at 48kHz — standard Opus frame size
+		const FRAME_SIZE = 960;
+
+		const encodedChunks: { chunk: EncodedAudioChunk; meta?: EncodedAudioChunkMetadata }[] = [];
+
+		const encoder = new AudioEncoder({
+			output: (chunk, meta) => encodedChunks.push({ chunk, meta }),
+			error: (e) => console.error("[AudioProcessor] Mix encoder error:", e),
+		});
+
+		const config: AudioEncoderConfig = {
+			codec: "opus",
+			sampleRate,
+			numberOfChannels: numChannels,
+			bitrate: AUDIO_BITRATE,
+		};
+
+		const support = await AudioEncoder.isConfigSupported(config);
+		if (!support.supported) {
+			console.warn("[AudioProcessor] Opus not supported for mixed audio");
+			return;
+		}
+
+		encoder.configure(config);
+
+		for (let offset = 0; offset < numFrames && !this.cancelled; offset += FRAME_SIZE) {
+			const frameCount = Math.min(FRAME_SIZE, numFrames - offset);
+			const timestampUs = Math.round((offset / sampleRate) * 1_000_000);
+			const audioData = this.createAudioDataFromBuffer(buffer, offset, frameCount, timestampUs);
+			encoder.encode(audioData);
+			audioData.close();
+		}
+
+		if (encoder.state === "configured") {
+			await encoder.flush();
+			encoder.close();
+		}
+
+		for (const { chunk, meta } of encodedChunks) {
+			if (this.cancelled) break;
+			await muxer.addAudioChunk(chunk, meta);
+		}
+	}
+
+	private createAudioDataFromBuffer(
+		buffer: AudioBuffer,
+		frameOffset: number,
+		frameCount: number,
+		timestampUs: number,
+	): AudioData {
+		const numChannels = buffer.numberOfChannels;
+		// f32-planar layout: all frames for ch0, then all frames for ch1, etc.
+		const pcmData = new Float32Array(frameCount * numChannels);
+
+		for (let ch = 0; ch < numChannels; ch++) {
+			const channelData = buffer.getChannelData(ch);
+			const destOffset = ch * frameCount;
+			for (let i = 0; i < frameCount; i++) {
+				pcmData[destOffset + i] = channelData[frameOffset + i] ?? 0;
+			}
+		}
+
+		return new AudioData({
+			format: "f32-planar",
+			sampleRate: buffer.sampleRate,
+			numberOfFrames: frameCount,
+			numberOfChannels: numChannels,
+			timestamp: timestampUs,
+			data: pcmData.buffer,
+		});
+	}
+
+	/**
+	 * Returns sub-intervals of [segStart, segEnd] that are NOT covered by any trim region.
+	 */
+	private getUntrimmedIntervals(
+		segStart: number,
+		segEnd: number,
+		sortedTrims: TrimRegion[],
+	): Array<[number, number]> {
+		const intervals: Array<[number, number]> = [];
+		let current = segStart;
+
+		for (const trim of sortedTrims) {
+			if (trim.endMs <= current) continue;
+			if (trim.startMs >= segEnd) break;
+
+			if (trim.startMs > current) {
+				intervals.push([current, Math.min(trim.startMs, segEnd)]);
+			}
+			current = Math.max(current, trim.endMs);
+			if (current >= segEnd) break;
+		}
+
+		if (current < segEnd) {
+			intervals.push([current, segEnd]);
+		}
+
+		return intervals;
+	}
+
+	/**
+	 * Maps a source timeline timestamp (ms) to the export timeline timestamp (ms),
+	 * accounting for the cumulative duration of all trim regions that end before it.
+	 */
+	private sourceToExportMs(sourceMs: number, sortedTrims: TrimRegion[]): number {
+		let offset = 0;
+		for (const trim of sortedTrims) {
+			if (trim.endMs <= sourceMs) {
+				offset += trim.endMs - trim.startMs;
+			} else {
+				break;
+			}
+		}
+		return Math.max(0, sourceMs - offset);
 	}
 
 	cancel(): void {

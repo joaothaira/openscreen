@@ -87,6 +87,8 @@ export interface CaptionData {
 	primaryFontSize: number;
 	secondaryFontSize: number;
 	fontFamily: string;
+	fontWeight?: string;
+	fontStretch?: string;
 	gradientDirection: CaptionGradientDirection;
 	textAlign: "left" | "center" | "right";
 	wordDelay: number; // ms between each word appearing
@@ -109,10 +111,12 @@ export interface AnnotationTextStyle {
 	backgroundColor: string;
 	fontSize: number; // pixels
 	fontFamily: string;
-	fontWeight: "normal" | "bold";
+	fontWeight: string;
+	fontStretch: string;
 	fontStyle: "normal" | "italic";
 	textDecoration: "none" | "underline";
 	textAlign: "left" | "center" | "right";
+	borderRadius?: number; // pixels, used for image annotations
 }
 
 export interface AnnotationRegion {
@@ -130,6 +134,7 @@ export interface AnnotationRegion {
 	figureData?: FigureData;
 	captionData?: CaptionData;
 	markerData?: MarkerData;
+	imageData?: ImageData;
 }
 
 export const DEFAULT_ANNOTATION_POSITION: AnnotationPosition = {
@@ -146,8 +151,9 @@ export const DEFAULT_ANNOTATION_STYLE: AnnotationTextStyle = {
 	color: "#ffffff",
 	backgroundColor: "transparent",
 	fontSize: 32,
-	fontFamily: "Inter",
-	fontWeight: "bold",
+	fontFamily: "'Inter",
+	fontWeight: "700",
+	fontStretch: "normal",
 	fontStyle: "normal",
 	textDecoration: "none",
 	textAlign: "center",
@@ -168,6 +174,27 @@ export interface MarkerData {
 	direction: MarkerDirection;
 }
 
+export type ImageAnimationType =
+	| "none"
+	| "fade"
+	| "slide-up"
+	| "slide-down"
+	| "slide-left"
+	| "slide-right"
+	| "zoom";
+
+export interface ImageData {
+	animationType: ImageAnimationType;
+	animationDuration: number; // ms
+	fadeOut?: boolean;
+}
+
+export const DEFAULT_IMAGE_DATA: ImageData = {
+	animationType: "none",
+	animationDuration: 500,
+	fadeOut: false,
+};
+
 export const DEFAULT_MARKER_DATA: MarkerData = {
 	color: "#FFE000",
 	opacity: 0.45,
@@ -183,6 +210,8 @@ export const DEFAULT_CAPTION_DATA: CaptionData = {
 	primaryFontSize: 64,
 	secondaryFontSize: 48,
 	fontFamily: "Impact, Arial Black, sans-serif",
+	fontWeight: "700",
+	fontStretch: "normal",
 	gradientDirection: "bottom",
 	textAlign: "center",
 	wordDelay: 150,
@@ -195,6 +224,56 @@ export interface CropRegion {
 	width: number;
 	height: number;
 }
+
+export type SubtitleTemplate =
+	| "classic"
+	| "minimal"
+	| "bold"
+	| "boxed"
+	| "cinematic"
+	| "outline"
+	| "glow"
+	| "stacked"
+	| "highlight";
+
+export const SUBTITLE_TEMPLATES: { value: SubtitleTemplate; label: string }[] = [
+	{ value: "classic", label: "Classic" },
+	{ value: "minimal", label: "Minimal" },
+	{ value: "bold", label: "Bold" },
+	{ value: "boxed", label: "Boxed" },
+	{ value: "cinematic", label: "Cinematic" },
+	{ value: "outline", label: "Outline" },
+	{ value: "glow", label: "Glow" },
+	{ value: "stacked", label: "Stacked" },
+	{ value: "highlight", label: "Highlight" },
+];
+
+export interface SubtitleItem {
+	id: string;
+	startMs: number;
+	endMs: number;
+	text: string;
+}
+
+export interface SubtitleStyle {
+	fontSize: number;
+	fontColor: string;
+	backgroundColor: string;
+	position: "top" | "bottom";
+	bottomOffset: number; // percent from edge (0-100)
+	fontFamily: string;
+	template: SubtitleTemplate;
+}
+
+export const DEFAULT_SUBTITLE_STYLE: SubtitleStyle = {
+	fontSize: 32,
+	fontColor: "#ffffff",
+	backgroundColor: "rgba(0,0,0,0.7)",
+	position: "bottom",
+	bottomOffset: 8,
+	fontFamily: "Inter, Arial, sans-serif",
+	template: "classic",
+};
 
 export const DEFAULT_CROP_REGION: CropRegion = {
 	x: 0,
@@ -217,6 +296,14 @@ export interface WebcamFocusRegion {
 	startMs: number;
 	endMs: number;
 	focusShape?: WebcamMaskShape;
+}
+
+export interface WebcamSegment {
+	id: string;
+	videoPath: string; // file:// URL for VideoPlayback
+	sourcePath: string; // absolute path for export
+	startMs: number; // position in main timeline (ms)
+	durationMs: number; // segment video duration (ms)
 }
 
 export const SPEED_OPTIONS: Array<{ speed: PlaybackSpeed; label: string }> = [

@@ -9,6 +9,7 @@ import {
 	Palette,
 	Sparkles,
 	Star,
+	Subtitles,
 	Trash2,
 	Unlock,
 	Upload,
@@ -60,7 +61,7 @@ import type {
 	ZoomDepth,
 	ZoomFocusMode,
 } from "./types";
-import { SPEED_OPTIONS } from "./types";
+import { SPEED_OPTIONS, SUBTITLE_TEMPLATES } from "./types";
 
 const WALLPAPER_COUNT = 18;
 const WALLPAPER_RELATIVE = Array.from(
@@ -144,6 +145,9 @@ interface SettingsPanelProps {
 	onAnnotationContentChange?: (id: string, content: string) => void;
 	onAnnotationTypeChange?: (id: string, type: AnnotationType) => void;
 	onAnnotationStyleChange?: (id: string, style: Partial<AnnotationRegion["style"]>) => void;
+	onAnnotationPositionChange?: (id: string, position: { x: number; y: number }) => void;
+	onAnnotationSizeChange?: (id: string, size: { width: number; height: number }) => void;
+	onAnnotationImageDataChange?: (id: string, imageData: import("./types").ImageData) => void;
 	onAnnotationFigureDataChange?: (id: string, figureData: FigureData) => void;
 	onAnnotationCaptionDataChange?: (id: string, captionData: CaptionData) => void;
 	onAnnotationMarkerDataChange?: (id: string, markerData: MarkerData) => void;
@@ -159,6 +163,8 @@ interface SettingsPanelProps {
 	onWebcamCornerPresetChange?: (preset: WebcamCornerPreset) => void;
 	webcamStackPosition?: WebcamStackPosition;
 	onWebcamStackPositionChange?: (pos: WebcamStackPosition) => void;
+	webcamFocusZoom?: number;
+	onWebcamFocusZoomChange?: (zoom: number) => void;
 	webcamLayoutPreset?: WebcamLayoutPreset;
 	onWebcamLayoutPresetChange?: (preset: WebcamLayoutPreset) => void;
 	webcamMaskShape?: WebcamMaskShape;
@@ -169,6 +175,17 @@ interface SettingsPanelProps {
 	selectedWebcamFocusShape?: WebcamMaskShape;
 	onWebcamFocusShapeChange?: (shape: WebcamMaskShape) => void;
 	onWebcamFocusDelete?: (id: string) => void;
+	webcamSyncOffsetMs?: number;
+	onWebcamSyncOffsetMsChange?: (ms: number) => void;
+	subtitleRegions?: import("./types").SubtitleItem[];
+	showSubtitles?: boolean;
+	onShowSubtitlesChange?: (show: boolean) => void;
+	subtitleStyle?: import("./types").SubtitleStyle;
+	onSubtitleStyleChange?: (style: Partial<import("./types").SubtitleStyle>) => void;
+	onSubtitleTextChange?: (id: string, text: string) => void;
+	onGenerateSubtitles?: () => void;
+	isGeneratingSubtitles?: boolean;
+	onClearSubtitles?: () => void;
 }
 
 export default SettingsPanel;
@@ -231,6 +248,9 @@ export function SettingsPanel({
 	onAnnotationContentChange,
 	onAnnotationTypeChange,
 	onAnnotationStyleChange,
+	onAnnotationPositionChange,
+	onAnnotationSizeChange,
+	onAnnotationImageDataChange,
 	onAnnotationFigureDataChange,
 	onAnnotationCaptionDataChange,
 	onAnnotationMarkerDataChange,
@@ -242,10 +262,14 @@ export function SettingsPanel({
 	hasWebcam = false,
 	onAddWebcamVideo,
 	onRemoveWebcamVideo,
+	webcamSyncOffsetMs = 0,
+	onWebcamSyncOffsetMsChange,
 	webcamCornerPreset = null,
 	onWebcamCornerPresetChange,
 	webcamStackPosition = "bottom",
 	onWebcamStackPositionChange,
+	webcamFocusZoom = 1,
+	onWebcamFocusZoomChange,
 	webcamLayoutPreset = "picture-in-picture",
 	onWebcamLayoutPresetChange,
 	webcamMaskShape = "rectangle",
@@ -256,6 +280,15 @@ export function SettingsPanel({
 	selectedWebcamFocusShape,
 	onWebcamFocusShapeChange,
 	onWebcamFocusDelete,
+	subtitleRegions = [],
+	showSubtitles = true,
+	onShowSubtitlesChange,
+	subtitleStyle,
+	onSubtitleStyleChange,
+	onSubtitleTextChange,
+	onGenerateSubtitles,
+	isGeneratingSubtitles = false,
+	onClearSubtitles,
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
 	const [wallpaperPaths, setWallpaperPaths] = useState<string[]>([]);
@@ -494,6 +527,21 @@ export function SettingsPanel({
 				onContentChange={(content) => onAnnotationContentChange(selectedAnnotation.id, content)}
 				onTypeChange={(type) => onAnnotationTypeChange(selectedAnnotation.id, type)}
 				onStyleChange={(style) => onAnnotationStyleChange(selectedAnnotation.id, style)}
+				onPositionChange={
+					onAnnotationPositionChange
+						? (pos) => onAnnotationPositionChange(selectedAnnotation.id, pos)
+						: undefined
+				}
+				onSizeChange={
+					onAnnotationSizeChange
+						? (size) => onAnnotationSizeChange(selectedAnnotation.id, size)
+						: undefined
+				}
+				onImageDataChange={
+					onAnnotationImageDataChange
+						? (imageData) => onAnnotationImageDataChange(selectedAnnotation.id, imageData)
+						: undefined
+				}
 				onFigureDataChange={
 					onAnnotationFigureDataChange
 						? (figureData) => onAnnotationFigureDataChange(selectedAnnotation.id, figureData)
@@ -696,273 +744,312 @@ export function SettingsPanel({
 								</Button>
 							) : (
 								<>
-								<div className="flex gap-1.5 mb-2">
-									<Button
-										onClick={onAddWebcamVideo}
-										variant="outline"
-										size="sm"
-										className="flex-1 gap-1.5 bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-300 text-xs h-7"
-									>
-										<Film className="w-3 h-3" />
-										{t("layout.changeCameraVideo")}
-									</Button>
-									<Button
-										onClick={onRemoveWebcamVideo}
-										variant="outline"
-										size="sm"
-										className="gap-1.5 bg-red-500/10 border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 text-red-400 text-xs h-7 px-2"
-									>
-										<X className="w-3 h-3" />
-										{t("layout.removeCameraVideo")}
-									</Button>
-								</div>
-								<div className="p-2 rounded-lg bg-white/5 border border-white/5">
-									<div className="text-[10px] font-medium text-slate-300 mb-1.5">
-										{t("layout.preset")}
+									<div className="flex gap-1.5 mb-2">
+										<Button
+											onClick={onAddWebcamVideo}
+											variant="outline"
+											size="sm"
+											className="flex-1 gap-1.5 bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-300 text-xs h-7"
+										>
+											<Film className="w-3 h-3" />
+											{t("layout.changeCameraVideo")}
+										</Button>
+
 									</div>
-									<Select
-										value={webcamLayoutPreset}
-										onValueChange={(value: WebcamLayoutPreset) =>
-											onWebcamLayoutPresetChange?.(value)
-										}
-									>
-										<SelectTrigger className="h-8 bg-black/20 border-white/10 text-xs">
-											<SelectValue placeholder={t("layout.selectPreset")} />
-										</SelectTrigger>
-										<SelectContent>
-											{WEBCAM_LAYOUT_PRESETS.filter(
-												(preset) =>
-													preset.value === "picture-in-picture" ||
-													isPortraitAspectRatio(aspectRatio),
-											).map((preset) => (
-												<SelectItem key={preset.value} value={preset.value} className="text-xs">
-													{preset.value === "picture-in-picture"
-														? t("layout.pictureInPicture")
-														: t("layout.verticalStack")}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
-								<div className="mt-2 p-2 rounded-lg bg-white/5 border border-white/5">
-									<div className="text-[10px] font-medium text-slate-300 mb-1.5">
-										{t("layout.position")}
+									<div className="flex gap-1.5 mb-2">
+										<Button
+											onClick={onRemoveWebcamVideo}
+											variant="outline"
+											size="sm"
+											className="flex-1 gap-1.5 bg-red-500/10 border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 text-red-400 text-xs h-7 px-2"
+										>
+											<X className="w-3 h-3" />
+											{t("layout.removeCameraVideo")}
+										</Button>
 									</div>
-									{webcamLayoutPreset === "picture-in-picture" ? (
-										<div className="grid grid-cols-2 gap-1">
-											{(
-												[
-													["top-left", "top-right"],
-													["center-left", "center-right"],
-													["bottom-left", "bottom-right"],
-												] as WebcamCornerPreset[][]
-											).map((row) =>
-												row.map((corner) => (
-													<button
-														key={corner}
-														type="button"
-														onClick={() => onWebcamCornerPresetChange?.(corner)}
-														className={cn(
-															"h-7 rounded-md border text-[9px] font-medium transition-all",
-															webcamCornerPreset === corner
-																? "bg-[#34B27B] border-[#34B27B] text-white"
-																: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400",
-														)}
-													>
-														{t(`layout.corner_${corner.replace("-", "_")}`)}
-													</button>
-												)),
-											)}
+									<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+										<div className="text-[10px] font-medium text-slate-300 mb-1.5">
+											{t("layout.preset")}
 										</div>
-									) : (
-										<div className="grid grid-cols-2 gap-1">
-											{(["top", "bottom"] as WebcamStackPosition[]).map((pos) => (
-												<button
-													key={pos}
-													type="button"
-													onClick={() => onWebcamStackPositionChange?.(pos)}
-													className={cn(
-														"h-7 rounded-md border text-[9px] font-medium transition-all",
-														webcamStackPosition === pos
-															? "bg-[#34B27B] border-[#34B27B] text-white"
-															: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400",
-													)}
-												>
-													{t(`layout.stack_${pos}`)}
-												</button>
-											))}
-										</div>
-									)}
-								</div>
-								{webcamLayoutPreset === "picture-in-picture" && (
+										<Select
+											value={webcamLayoutPreset}
+											onValueChange={(value: WebcamLayoutPreset) =>
+												onWebcamLayoutPresetChange?.(value)
+											}
+										>
+											<SelectTrigger className="h-8 bg-black/20 border-white/10 text-xs">
+												<SelectValue placeholder={t("layout.selectPreset")} />
+											</SelectTrigger>
+											<SelectContent>
+												{WEBCAM_LAYOUT_PRESETS.filter(
+													(preset) =>
+														preset.value === "picture-in-picture" ||
+														isPortraitAspectRatio(aspectRatio),
+												).map((preset) => (
+													<SelectItem key={preset.value} value={preset.value} className="text-xs">
+														{preset.value === "picture-in-picture"
+															? t("layout.pictureInPicture")
+															: t("layout.verticalStack")}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</div>
 									<div className="mt-2 p-2 rounded-lg bg-white/5 border border-white/5">
 										<div className="text-[10px] font-medium text-slate-300 mb-1.5">
-											{t("layout.webcamShape")}
+											{t("layout.position")}
 										</div>
-										<div className="grid grid-cols-5 gap-1.5">
-											{(
-												[
-													{ value: "rectangle", label: "Rect" },
-													{ value: "circle", label: "Circle" },
-													{ value: "square", label: "Square" },
-													{ value: "rounded", label: "Rounded" },
-													{ value: "portrait", label: "Portrait" },
-												] as Array<{ value: WebcamMaskShape; label: string }>
-											).map((shape) => (
-												<button
-													key={shape.value}
-													type="button"
-													onClick={() => onWebcamMaskShapeChange?.(shape.value)}
-													className={cn(
-														"h-10 rounded-lg border flex flex-col items-center justify-center gap-0.5 transition-all",
-														webcamMaskShape === shape.value
-															? "bg-[#34B27B] border-[#34B27B] text-white"
-															: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400",
-													)}
-												>
-													<svg
-														width="16"
-														height="16"
-														viewBox="0 0 16 16"
-														fill="none"
-														xmlns="http://www.w3.org/2000/svg"
-													>
-														{shape.value === "rectangle" && (
-															<rect
-																x="1"
-																y="3"
-																width="14"
-																height="10"
-																rx="2"
-																stroke="currentColor"
-																strokeWidth="1.5"
-															/>
-														)}
-														{shape.value === "circle" && (
-															<circle
-																cx="8"
-																cy="8"
-																r="6.5"
-																stroke="currentColor"
-																strokeWidth="1.5"
-															/>
-														)}
-														{shape.value === "square" && (
-															<rect
-																x="2"
-																y="2"
-																width="12"
-																height="12"
-																rx="1"
-																stroke="currentColor"
-																strokeWidth="1.5"
-															/>
-														)}
-														{shape.value === "rounded" && (
-															<rect
-																x="1"
-																y="3"
-																width="14"
-																height="10"
-																rx="5"
-																stroke="currentColor"
-																strokeWidth="1.5"
-															/>
-														)}
-														{shape.value === "portrait" && (
-															<rect
-																x="4.5"
-																y="1"
-																width="7"
-																height="14"
-																rx="2"
-																stroke="currentColor"
-																strokeWidth="1.5"
-															/>
-														)}
-													</svg>
-													<span className="text-[8px] leading-none">{shape.label}</span>
-												</button>
-											))}
-										</div>
-										<div className="mt-2">
-											<div className="text-[10px] font-medium text-slate-300 mb-1.5">
-												{t("layout.webcamSize")}
-											</div>
-											<div className="grid grid-cols-3 gap-1.5">
+										{webcamLayoutPreset === "picture-in-picture" ? (
+											<div className="grid grid-cols-2 gap-1">
 												{(
 													[
-														{ value: "small", label: t("layout.webcamSizeSmall") },
-														{ value: "medium", label: t("layout.webcamSizeMedium") },
-														{ value: "large", label: t("layout.webcamSizeLarge") },
-													] as Array<{ value: WebcamSizePreset; label: string }>
-												).map((size) => (
-													<button
-														key={size.value}
-														type="button"
-														onClick={() => onWebcamSizePresetChange?.(size.value)}
-														className={cn(
-															"h-8 rounded-lg border text-[10px] font-medium transition-all",
-															webcamSizePreset === size.value
-																? "bg-[#34B27B] border-[#34B27B] text-white"
-																: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400",
-														)}
-													>
-														{size.label}
-													</button>
-												))}
-											</div>
-										</div>
-										{selectedWebcamFocusId && (
-											<div className="mt-2 pt-2 border-t border-white/10">
-												<div className="text-[10px] font-medium text-slate-300 mb-1.5">
-													{t("layout.focusShape")}
-												</div>
-												<div className="grid grid-cols-5 gap-1.5">
-													{(
-														[
-															{ value: "rectangle", label: "Rect" },
-															{ value: "circle", label: "Circle" },
-															{ value: "square", label: "Square" },
-															{ value: "rounded", label: "Rounded" },
-															{ value: "portrait", label: "Portrait" },
-														] as Array<{ value: WebcamMaskShape; label: string }>
-													).map((shape) => (
+														["top-left", "top-right"],
+														["center-left", "center-right"],
+														["bottom-left", "bottom-right"],
+													] as WebcamCornerPreset[][]
+												).map((row) =>
+													row.map((corner) => (
 														<button
-															key={shape.value}
+															key={corner}
 															type="button"
-															onClick={() => onWebcamFocusShapeChange?.(shape.value)}
+															onClick={() => onWebcamCornerPresetChange?.(corner)}
 															className={cn(
-																"h-10 rounded-lg border flex flex-col items-center justify-center gap-0.5 transition-all",
-																selectedWebcamFocusShape === shape.value
+																"h-7 rounded-md border text-[9px] font-medium transition-all",
+																webcamCornerPreset === corner
 																	? "bg-[#34B27B] border-[#34B27B] text-white"
 																	: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400",
 															)}
 														>
-															<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-																{shape.value === "rectangle" && <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.5" />}
-																{shape.value === "circle" && <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" />}
-																{shape.value === "square" && <rect x="2" y="2" width="12" height="12" rx="1" stroke="currentColor" strokeWidth="1.5" />}
-																{shape.value === "rounded" && <rect x="1" y="3" width="14" height="10" rx="5" stroke="currentColor" strokeWidth="1.5" />}
-																{shape.value === "portrait" && <rect x="4.5" y="1" width="7" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />}
-															</svg>
-															<span className="text-[8px] leading-none">{shape.label}</span>
+															{t(`layout.corner_${corner.replace("-", "_")}`)}
 														</button>
-													))}
-												</div>
-												<Button
-													onClick={() => onWebcamFocusDelete?.(selectedWebcamFocusId)}
-													variant="destructive"
-													size="sm"
-													className="mt-2 w-full gap-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all h-8 text-xs"
-												>
-													<Trash2 className="w-3 h-3" />
-													{t("layout.deleteFocusRegion")}
-												</Button>
+													)),
+												)}
+											</div>
+										) : (
+											<div className="grid grid-cols-2 gap-1">
+												{(["top", "bottom"] as WebcamStackPosition[]).map((pos) => (
+													<button
+														key={pos}
+														type="button"
+														onClick={() => onWebcamStackPositionChange?.(pos)}
+														className={cn(
+															"h-7 rounded-md border text-[9px] font-medium transition-all",
+															webcamStackPosition === pos
+																? "bg-[#34B27B] border-[#34B27B] text-white"
+																: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400",
+														)}
+													>
+														{t(`layout.stack_${pos}`)}
+													</button>
+												))}
 											</div>
 										)}
 									</div>
-								)}
+									{webcamLayoutPreset === "vertical-stack" && (
+										<div className="mt-2 pt-2 border-t border-white/5">
+											<div className="flex items-center justify-between mb-1.5">
+												<span className="text-[10px] font-medium text-slate-300">Focus zoom</span>
+												<span className="text-[10px] text-slate-500">{Math.round(webcamFocusZoom * 100)}%</span>
+											</div>
+											<Slider
+												min={0}
+												max={1}
+												step={0.05}
+												value={[webcamFocusZoom]}
+												onValueChange={([v]) => onWebcamFocusZoomChange?.(v)}
+												className="w-full"
+											/>
+										</div>
+									)}
+									{webcamLayoutPreset === "picture-in-picture" && (
+										<div className="mt-2 p-2 rounded-lg bg-white/5 border border-white/5">
+											<div className="text-[10px] font-medium text-slate-300 mb-1.5">
+												{t("layout.webcamShape")}
+											</div>
+											<div className="grid grid-cols-5 gap-1.5">
+												{(
+													[
+														{ value: "rectangle", label: "Rect" },
+														{ value: "circle", label: "Circle" },
+														{ value: "square", label: "Square" },
+														{ value: "rounded", label: "Rounded" },
+														{ value: "portrait", label: "Portrait" },
+													] as Array<{ value: WebcamMaskShape; label: string }>
+												).map((shape) => (
+													<button
+														key={shape.value}
+														type="button"
+														onClick={() => onWebcamMaskShapeChange?.(shape.value)}
+														className={cn(
+															"h-10 rounded-lg border flex flex-col items-center justify-center gap-0.5 transition-all",
+															webcamMaskShape === shape.value
+																? "bg-[#34B27B] border-[#34B27B] text-white"
+																: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400",
+														)}
+													>
+														<svg
+															width="16"
+															height="16"
+															viewBox="0 0 16 16"
+															fill="none"
+															xmlns="http://www.w3.org/2000/svg"
+														>
+															{shape.value === "rectangle" && (
+																<rect
+																	x="1"
+																	y="3"
+																	width="14"
+																	height="10"
+																	rx="2"
+																	stroke="currentColor"
+																	strokeWidth="1.5"
+																/>
+															)}
+															{shape.value === "circle" && (
+																<circle
+																	cx="8"
+																	cy="8"
+																	r="6.5"
+																	stroke="currentColor"
+																	strokeWidth="1.5"
+																/>
+															)}
+															{shape.value === "square" && (
+																<rect
+																	x="2"
+																	y="2"
+																	width="12"
+																	height="12"
+																	rx="1"
+																	stroke="currentColor"
+																	strokeWidth="1.5"
+																/>
+															)}
+															{shape.value === "rounded" && (
+																<rect
+																	x="1"
+																	y="3"
+																	width="14"
+																	height="10"
+																	rx="5"
+																	stroke="currentColor"
+																	strokeWidth="1.5"
+																/>
+															)}
+															{shape.value === "portrait" && (
+																<rect
+																	x="4.5"
+																	y="1"
+																	width="7"
+																	height="14"
+																	rx="2"
+																	stroke="currentColor"
+																	strokeWidth="1.5"
+																/>
+															)}
+														</svg>
+														<span className="text-[8px] leading-none">{shape.label}</span>
+													</button>
+												))}
+											</div>
+											<div className="mt-2">
+												<div className="text-[10px] font-medium text-slate-300 mb-1.5">
+													{t("layout.webcamSize")}
+												</div>
+												<div className="grid grid-cols-3 gap-1.5">
+													{(
+														[
+															{ value: "small", label: t("layout.webcamSizeSmall") },
+															{ value: "medium", label: t("layout.webcamSizeMedium") },
+															{ value: "large", label: t("layout.webcamSizeLarge") },
+														] as Array<{ value: WebcamSizePreset; label: string }>
+													).map((size) => (
+														<button
+															key={size.value}
+															type="button"
+															onClick={() => onWebcamSizePresetChange?.(size.value)}
+															className={cn(
+																"h-8 rounded-lg border text-[10px] font-medium transition-all",
+																webcamSizePreset === size.value
+																	? "bg-[#34B27B] border-[#34B27B] text-white"
+																	: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400",
+															)}
+														>
+															{size.label}
+														</button>
+													))}
+												</div>
+											</div>
+											{selectedWebcamFocusId && (
+												<div className="mt-2 pt-2 border-t border-white/10">
+													<div className="text-[10px] font-medium text-slate-300 mb-1.5">
+														{t("layout.focusShape")}
+													</div>
+													<div className="grid grid-cols-5 gap-1.5">
+														{(
+															[
+																{ value: "rectangle", label: "Rect" },
+																{ value: "circle", label: "Circle" },
+																{ value: "square", label: "Square" },
+																{ value: "rounded", label: "Rounded" },
+																{ value: "portrait", label: "Portrait" },
+															] as Array<{ value: WebcamMaskShape; label: string }>
+														).map((shape) => (
+															<button
+																key={shape.value}
+																type="button"
+																onClick={() => onWebcamFocusShapeChange?.(shape.value)}
+																className={cn(
+																	"h-10 rounded-lg border flex flex-col items-center justify-center gap-0.5 transition-all",
+																	selectedWebcamFocusShape === shape.value
+																		? "bg-[#34B27B] border-[#34B27B] text-white"
+																		: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400",
+																)}
+															>
+																<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+																	{shape.value === "rectangle" && <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.5" />}
+																	{shape.value === "circle" && <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" />}
+																	{shape.value === "square" && <rect x="2" y="2" width="12" height="12" rx="1" stroke="currentColor" strokeWidth="1.5" />}
+																	{shape.value === "rounded" && <rect x="1" y="3" width="14" height="10" rx="5" stroke="currentColor" strokeWidth="1.5" />}
+																	{shape.value === "portrait" && <rect x="4.5" y="1" width="7" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />}
+																</svg>
+																<span className="text-[8px] leading-none">{shape.label}</span>
+															</button>
+														))}
+													</div>
+													<Button
+														onClick={() => onWebcamFocusDelete?.(selectedWebcamFocusId)}
+														variant="destructive"
+														size="sm"
+														className="mt-2 w-full gap-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all h-8 text-xs"
+													>
+														<Trash2 className="w-3 h-3" />
+														{t("layout.deleteFocusRegion")}
+													</Button>
+												</div>
+											)}
+										</div>
+									)}
+									{/* Webcam sync offset */}
+									<div className="mt-2 pt-2 border-t border-white/5">
+										<div className="flex items-center justify-between mb-1.5">
+											<span className="text-[10px] font-medium text-slate-300">Sync offset</span>
+											<span className="text-[10px] text-slate-500">
+												{webcamSyncOffsetMs > 0 ? `+${webcamSyncOffsetMs}` : webcamSyncOffsetMs}ms
+											</span>
+										</div>
+										<Slider
+											min={-2000}
+											max={2000}
+											step={50}
+											value={[webcamSyncOffsetMs]}
+											onValueChange={([v]) => onWebcamSyncOffsetMsChange?.(v)}
+											className="w-full"
+										/>
+										<p className="text-[9px] text-slate-600 mt-1">
+											Applied to new recordings. Positive = webcam starts later.
+										</p>
+									</div>
 								</>
 							)}
 						</AccordionContent>
@@ -1241,6 +1328,172 @@ export function SettingsPanel({
 									</TabsContent>
 								</div>
 							</Tabs>
+						</AccordionContent>
+					</AccordionItem>
+
+					<AccordionItem
+						value="subtitles"
+						className="border-white/5 rounded-xl bg-white/[0.02] px-3"
+					>
+						<AccordionTrigger className="py-2.5 hover:no-underline">
+							<div className="flex items-center gap-2">
+								<Subtitles className="w-4 h-4 text-[#34B27B]" />
+								<span className="text-xs font-medium">Subtitles</span>
+								{subtitleRegions.length > 0 && (
+									<span className="ml-auto text-[10px] text-[#34B27B] bg-[#34B27B]/10 px-1.5 py-0.5 rounded-full">
+										{subtitleRegions.length}
+									</span>
+								)}
+							</div>
+						</AccordionTrigger>
+						<AccordionContent className="pb-3">
+							<div className="space-y-3">
+								{/* Generate / Clear buttons */}
+								<div className="flex gap-1.5">
+									<Button
+										onClick={onGenerateSubtitles}
+										disabled={isGeneratingSubtitles}
+										variant="outline"
+										size="sm"
+										className="flex-1 gap-1.5 bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-300 text-xs h-7"
+									>
+										<Subtitles className="w-3 h-3" />
+										{isGeneratingSubtitles ? "Generating..." : "Auto-Generate"}
+									</Button>
+									{subtitleRegions.length > 0 && (
+										<Button
+											onClick={onClearSubtitles}
+											variant="outline"
+											size="sm"
+											className="gap-1.5 bg-red-500/10 border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 text-red-400 text-xs h-7 px-2"
+										>
+											<Trash2 className="w-3 h-3" />
+											Clear
+										</Button>
+									)}
+								</div>
+
+								{subtitleRegions.length === 0 && !isGeneratingSubtitles && (
+									<p className="text-[10px] text-slate-500 text-center">
+										Click Auto-Generate to create subtitles from your video audio using Whisper AI.
+									</p>
+								)}
+
+								{subtitleRegions.length > 0 && (
+									<>
+										{/* Show/hide toggle */}
+										<div className="flex items-center justify-between">
+											<span className="text-xs text-slate-300">Show subtitles</span>
+											<Switch
+												checked={showSubtitles}
+												onCheckedChange={onShowSubtitlesChange}
+											/>
+										</div>
+
+										{/* Template */}
+										<div>
+											<span className="text-xs text-slate-400 block mb-1.5">Template</span>
+											<Select
+												value={subtitleStyle?.template ?? "classic"}
+												onValueChange={(v) => onSubtitleStyleChange?.({ template: v as import("./types").SubtitleTemplate })}
+											>
+												<SelectTrigger className="h-7 text-xs bg-white/5 border-white/10 hover:bg-white/10 text-slate-300">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													{SUBTITLE_TEMPLATES.map(({ value, label }) => (
+														<SelectItem key={value} value={value} className="text-xs">
+															{label}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										</div>
+
+										{/* Font size */}
+										<div>
+											<div className="flex items-center justify-between mb-1.5">
+												<span className="text-xs text-slate-400">Font size</span>
+												<span className="text-[10px] text-slate-500">{subtitleStyle?.fontSize ?? 32}px</span>
+											</div>
+											<Slider
+												min={12}
+												max={80}
+												step={2}
+												value={[subtitleStyle?.fontSize ?? 32]}
+												onValueChange={([v]) => onSubtitleStyleChange?.({ fontSize: v })}
+												className="w-full"
+											/>
+										</div>
+
+										{/* Position toggle + offset slider */}
+										<div>
+											<div className="flex items-center justify-between mb-2">
+												<span className="text-xs text-slate-400">Position</span>
+												<div className="flex gap-1">
+													{(["bottom", "top"] as const).map((pos) => (
+														<Button
+															key={pos}
+															type="button"
+															onClick={() => onSubtitleStyleChange?.({ position: pos })}
+															size="sm"
+															className={cn(
+																"h-6 px-2 text-[10px] rounded-md border transition-all",
+																subtitleStyle?.position === pos
+																	? "border-[#34B27B] bg-[#34B27B] text-white"
+																	: "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10",
+															)}
+														>
+															{pos}
+														</Button>
+													))}
+												</div>
+											</div>
+											<div className="flex items-center justify-between mb-1.5">
+												<span className="text-xs text-slate-400">Offset</span>
+												<span className="text-[10px] text-slate-500">{subtitleStyle?.bottomOffset ?? 8}%</span>
+											</div>
+											<Slider
+												min={0}
+												max={45}
+												step={1}
+												value={[subtitleStyle?.bottomOffset ?? 8]}
+												onValueChange={([v]) => onSubtitleStyleChange?.({ bottomOffset: v })}
+												className="w-full"
+											/>
+										</div>
+
+										{/* Subtitle text list */}
+										<div>
+											<div className="flex items-center justify-between mb-1.5">
+												<span className="text-xs text-slate-400">
+													{subtitleRegions.length} subtitle{subtitleRegions.length !== 1 ? "s" : ""}
+												</span>
+											</div>
+											<div className="space-y-1.5 max-h-64 overflow-y-auto pr-0.5">
+												{subtitleRegions.map((sub) => {
+													const startSec = sub.startMs / 1000;
+													const mm = Math.floor(startSec / 60);
+													const ss = String(Math.floor(startSec % 60)).padStart(2, "0");
+													const ts = `${mm}:${ss}`;
+													return (
+														<div key={sub.id} className="group rounded-lg bg-white/[0.03] border border-white/5 p-2">
+															<div className="text-[10px] text-slate-600 mb-1 font-mono">{ts}</div>
+															<textarea
+																value={sub.text}
+																onChange={(e) => onSubtitleTextChange?.(sub.id, e.target.value)}
+																rows={2}
+																className="w-full bg-transparent text-[11px] text-slate-300 resize-none outline-none border-none leading-snug placeholder:text-slate-600"
+																spellCheck={false}
+															/>
+														</div>
+													);
+												})}
+											</div>
+										</div>
+									</>
+								)}
+							</div>
 						</AccordionContent>
 					</AccordionItem>
 				</Accordion>
