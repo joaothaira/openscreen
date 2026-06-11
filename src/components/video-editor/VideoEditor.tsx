@@ -306,6 +306,7 @@ export default function VideoEditor() {
 	const [selectedSpeedId, setSelectedSpeedId] = useState<string | null>(null);
 	const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
 	const [selectedBlurId, setSelectedBlurId] = useState<string | null>(null);
+	const [selectedSubtitleId, setSelectedSubtitleId] = useState<string | null>(null);
 	const [selectedWebcamFocusId, setSelectedWebcamFocusId] = useState<string | null>(null);
 	const [selectedWebcamSegmentId, setSelectedWebcamSegmentId] = useState<string | null>(null);
 	const [isExporting, setIsExporting] = useState(false);
@@ -1151,6 +1152,7 @@ export default function VideoEditor() {
 			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
+			setSelectedSubtitleId(null);
 		}
 	}, []);
 
@@ -1161,6 +1163,7 @@ export default function VideoEditor() {
 			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
+			setSelectedSubtitleId(null);
 		}
 	}, []);
 
@@ -1171,6 +1174,7 @@ export default function VideoEditor() {
 			setSelectedTrimId(null);
 			setSelectedSpeedId(null);
 			setSelectedBlurId(null);
+			setSelectedSubtitleId(null);
 		}
 	}, []);
 
@@ -1181,6 +1185,18 @@ export default function VideoEditor() {
 			setSelectedTrimId(null);
 			setSelectedAnnotationId(null);
 			setSelectedSpeedId(null);
+			setSelectedSubtitleId(null);
+		}
+	}, []);
+
+	const handleSelectSubtitle = useCallback((id: string | null) => {
+		setSelectedSubtitleId(id);
+		if (id) {
+			setSelectedZoomId(null);
+			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
+			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 		}
 	}, []);
 
@@ -1749,6 +1765,29 @@ export default function VideoEditor() {
 		[selectedAnnotationId, selectedBlurId, pushState],
 	);
 
+	const handleSubtitleSpanChange = useCallback(
+		(id: string, span: Span) => {
+			pushState((prev) => ({
+				subtitleRegions: prev.subtitleRegions.map((s) =>
+					s.id === id ? { ...s, startMs: Math.round(span.start), endMs: Math.round(span.end) } : s,
+				),
+			}));
+		},
+		[pushState],
+	);
+
+	const handleSubtitleDelete = useCallback(
+		(id: string) => {
+			pushState((prev) => ({
+				subtitleRegions: prev.subtitleRegions.filter((s) => s.id !== id),
+			}));
+			if (selectedSubtitleId === id) {
+				setSelectedSubtitleId(null);
+			}
+		},
+		[selectedSubtitleId, pushState],
+	);
+
 	const handleAnnotationContentChange = useCallback(
 		(id: string, content: string) => {
 			pushState((prev) => ({
@@ -2094,6 +2133,12 @@ export default function VideoEditor() {
 			setSelectedWebcamSegmentId(null);
 		}
 	}, [selectedWebcamSegmentId, webcamSegments]);
+
+	useEffect(() => {
+		if (selectedSubtitleId && !subtitleRegions.some((s) => s.id === selectedSubtitleId)) {
+			setSelectedSubtitleId(null);
+		}
+	}, [selectedSubtitleId, subtitleRegions]);
 
 	const handleGenerateSubtitles = useCallback(async () => {
 		if (!videoSourcePath) {
@@ -3521,6 +3566,11 @@ export default function VideoEditor() {
 									onAnnotationDelete={handleAnnotationDelete}
 									selectedAnnotationId={selectedAnnotationId}
 									onSelectAnnotation={handleSelectAnnotation}
+									subtitleRegions={subtitleRegions}
+									onSubtitleSpanChange={handleSubtitleSpanChange}
+									onSubtitleDelete={handleSubtitleDelete}
+									selectedSubtitleId={selectedSubtitleId}
+									onSelectSubtitle={handleSelectSubtitle}
 									blurRegions={blurRegions}
 									onBlurAdded={handleBlurAdded}
 									onBlurSpanChange={handleAnnotationSpanChange}
