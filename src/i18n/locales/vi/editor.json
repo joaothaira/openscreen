@@ -62,7 +62,10 @@
 		"noAudio": "Video này không có âm thanh dùng được để chuyển thành văn bản.",
 		"failed": "Không thể tạo phụ đề.",
 		"truncated": "Chỉ {{minutes}} phút đầu tiên được chuyển thành văn bản.",
-		"language": "Spoken language"
+		"language": "Spoken language",
+		"output": "Caption style",
+		"outputAnnotations": "Text annotations",
+		"outputSubtitles": "Styled subtitles (templates)"
 	},
 	"emptyState": {
 		"title": "Không có dự án nào được mở",

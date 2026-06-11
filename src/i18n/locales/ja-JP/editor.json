@@ -62,7 +62,10 @@
 		"noAudio": "この動画には書き起こしに使える音声がありません。",
 		"failed": "キャプションを生成できませんでした。",
 		"truncated": "最初の {{minutes}} 分のみが書き起こされました。",
-		"language": "Spoken language"
+		"language": "Spoken language",
+		"output": "Caption style",
+		"outputAnnotations": "Text annotations",
+		"outputSubtitles": "Styled subtitles (templates)"
 	},
 	"emptyState": {
 		"title": "プロジェクトが開かれていません",

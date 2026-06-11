@@ -62,7 +62,10 @@
 		"noAudio": "此视频没有可用于转写的音频。",
 		"failed": "无法生成字幕。",
 		"truncated": "仅转写了最前 {{minutes}} 分钟。",
-		"language": "Spoken language"
+		"language": "Spoken language",
+		"output": "Caption style",
+		"outputAnnotations": "Text annotations",
+		"outputSubtitles": "Styled subtitles (templates)"
 	},
 	"emptyState": {
 		"title": "未打开任何项目",

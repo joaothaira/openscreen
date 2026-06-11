@@ -62,7 +62,10 @@
 		"noAudio": "此影片沒有可用於轉寫的音訊。",
 		"failed": "無法產生字幕。",
 		"truncated": "僅轉寫了最前 {{minutes}} 分鐘。",
-		"language": "Spoken language"
+		"language": "Spoken language",
+		"output": "Caption style",
+		"outputAnnotations": "Text annotations",
+		"outputSubtitles": "Styled subtitles (templates)"
 	},
 	"emptyState": {
 		"title": "未開啟任何專案",

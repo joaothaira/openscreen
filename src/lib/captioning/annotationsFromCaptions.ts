@@ -1,4 +1,8 @@
-import type { AnnotationRegion, AnnotationTextStyle } from "@/components/video-editor/types";
+import type {
+	AnnotationRegion,
+	AnnotationTextStyle,
+	SubtitleItem,
+} from "@/components/video-editor/types";
 
 import type { CaptionSegment } from "./transcribe";
 
@@ -588,6 +592,39 @@ export function captionSegmentsToAnnotationRegions(
 		nextNumericId: nid,
 		nextZIndex: z,
 	};
+}
+
+/**
+ * Same grouping/dedupe chain as `captionSegmentsToAnnotationRegions`, but emitting
+ * the editor's styled-subtitle model (rendered by SubtitleOverlay templates)
+ * instead of plain text annotations. Subtitles render one at a time in a fixed
+ * slot, so the annotation timeline-gap reconciliation is not needed here.
+ */
+export function captionSegmentsToSubtitleItems(
+	segments: CaptionSegment[],
+	layout?: CaptionSegmentLayoutOptions,
+): SubtitleItem[] {
+	const minW = layout?.minWordsPerCaption ?? 2;
+	const maxW = layout?.maxWordsPerCaption ?? 7;
+	const granularity = layout?.timestampGranularity ?? "word";
+
+	const grouped =
+		granularity === "phrase"
+			? groupPhraseCaptionSegmentsIntoLines(segments, minW, maxW)
+			: groupTimedCaptionWordsIntoLines(segments, minW, maxW);
+
+	const finalized = finalizeCaptionSegmentsForPlayback(dedupeAdjacentCaptionRepeats(grouped));
+
+	const batch = Date.now();
+	return finalized.map((seg, index) => {
+		const startMs = Math.round(seg.startSec * 1000);
+		return {
+			id: `subtitle-${batch}-${index}`,
+			startMs,
+			endMs: Math.max(Math.round(seg.endSec * 1000), startMs + 1),
+			text: seg.text,
+		};
+	});
 }
 
 export function maxAnnotationNumericId(regions: AnnotationRegion[]): number {

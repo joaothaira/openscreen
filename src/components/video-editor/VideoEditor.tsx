@@ -28,6 +28,7 @@ import { type Locale } from "@/i18n/config";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
 import {
 	captionSegmentsToAnnotationRegions,
+	captionSegmentsToSubtitleItems,
 	extractMono16kFromVideoUrl,
 	MAX_CAPTION_AUDIO_SEC,
 	reconcileAutoCaptionTimelineGaps,
@@ -393,6 +394,7 @@ export default function VideoEditor() {
 	const showCursorSettings = hasEditableCursorRecording;
 	const { locale, setLocale, t: rawT } = useI18n();
 	const [captionLanguage, setCaptionLanguage] = useState(() => captionLanguageForLocale(locale));
+	const [captionOutput, setCaptionOutput] = useState<"subtitles" | "annotations">("subtitles");
 	const t = useScopedT("editor");
 	const ts = useScopedT("settings");
 	const availableLocales = getAvailableLocales();
@@ -2688,48 +2690,74 @@ export default function VideoEditor() {
 							}))
 						: segmentsRaw;
 
-				let { regions, nextNumericId, nextZIndex } = captionSegmentsToAnnotationRegions(
-					segments,
-					nextAnnotationIdRef.current,
-					nextAnnotationZIndexRef.current,
-					{
+				let createdCount = 0;
+				if (captionOutput === "subtitles") {
+					let items = captionSegmentsToSubtitleItems(segments, {
 						minWordsPerCaption: minW,
 						maxWordsPerCaption: maxW,
 						timestampGranularity: granularity,
-					},
-				);
-
-				if (regions.length === 0 && segments.length > 0) {
-					({ regions, nextNumericId, nextZIndex } = captionSegmentsToAnnotationRegions(
+					});
+					if (items.length === 0 && segments.length > 0) {
+						items = captionSegmentsToSubtitleItems(segments, {
+							minWordsPerCaption: 1,
+							maxWordsPerCaption: Number.MAX_SAFE_INTEGER,
+							timestampGranularity: granularity,
+						});
+					}
+					if (items.length === 0) {
+						toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
+						toast.info(t("autoCaptions.noneHeard"));
+						return;
+					}
+					// A generation describes the whole video: replace, like the sidebar
+					// subtitle generator does, instead of stacking duplicate lines.
+					pushState({ subtitleRegions: items, showSubtitles: true });
+					createdCount = items.length;
+				} else {
+					let { regions, nextNumericId, nextZIndex } = captionSegmentsToAnnotationRegions(
 						segments,
 						nextAnnotationIdRef.current,
 						nextAnnotationZIndexRef.current,
 						{
-							minWordsPerCaption: 1,
-							maxWordsPerCaption: Number.MAX_SAFE_INTEGER,
+							minWordsPerCaption: minW,
+							maxWordsPerCaption: maxW,
 							timestampGranularity: granularity,
 						},
-					));
-				}
+					);
 
-				if (regions.length === 0) {
-					toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
-					toast.info(t("autoCaptions.noneHeard"));
-					return;
-				}
+					if (regions.length === 0 && segments.length > 0) {
+						({ regions, nextNumericId, nextZIndex } = captionSegmentsToAnnotationRegions(
+							segments,
+							nextAnnotationIdRef.current,
+							nextAnnotationZIndexRef.current,
+							{
+								minWordsPerCaption: 1,
+								maxWordsPerCaption: Number.MAX_SAFE_INTEGER,
+								timestampGranularity: granularity,
+							},
+						));
+					}
 
-				pushState((prev) => ({ annotationRegions: [...prev.annotationRegions, ...regions] }));
-				nextAnnotationIdRef.current = nextNumericId;
-				nextAnnotationZIndexRef.current = nextZIndex;
+					if (regions.length === 0) {
+						toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
+						toast.info(t("autoCaptions.noneHeard"));
+						return;
+					}
+
+					pushState((prev) => ({ annotationRegions: [...prev.annotationRegions, ...regions] }));
+					nextAnnotationIdRef.current = nextNumericId;
+					nextAnnotationZIndexRef.current = nextZIndex;
+					createdCount = regions.length;
+				}
 
 				toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
 				const minutesTrunc = String(Math.round(MAX_CAPTION_AUDIO_SEC / 60));
 				if (truncated) {
-					toast.success(t("autoCaptions.done", { count: String(regions.length) }), {
+					toast.success(t("autoCaptions.done", { count: String(createdCount) }), {
 						description: t("autoCaptions.truncated", { minutes: minutesTrunc }),
 					});
 				} else {
-					toast.success(t("autoCaptions.done", { count: String(regions.length) }));
+					toast.success(t("autoCaptions.done", { count: String(createdCount) }));
 				}
 			} catch (e) {
 				console.error(e);
@@ -2741,7 +2769,7 @@ export default function VideoEditor() {
 				setIsAutoCaptioning(false);
 			}
 		},
-		[videoPath, trimRegions, pushState, t, captionLanguage],
+		[videoPath, trimRegions, pushState, t, captionLanguage, captionOutput],
 	);
 
 	const handleSaveDiagnostic = useCallback(async () => {
@@ -2821,6 +2849,21 @@ export default function VideoEditor() {
 						<DialogDescription>{t("autoCaptions.dialogDescription")}</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-4 py-2">
+						<div className="grid gap-2">
+							<Label htmlFor="caption-output">{t("autoCaptions.output")}</Label>
+							<Select
+								value={captionOutput}
+								onValueChange={(v) => setCaptionOutput(v as "subtitles" | "annotations")}
+							>
+								<SelectTrigger id="caption-output" className="h-9">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="subtitles">{t("autoCaptions.outputSubtitles")}</SelectItem>
+									<SelectItem value="annotations">{t("autoCaptions.outputAnnotations")}</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
 						<div className="grid gap-2">
 							<Label htmlFor="caption-language">{t("autoCaptions.language")}</Label>
 							<Select value={captionLanguage} onValueChange={setCaptionLanguage}>

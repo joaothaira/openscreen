@@ -62,7 +62,10 @@
 		"noAudio": "This video has no usable audio to transcribe.",
 		"failed": "Could not generate captions.",
 		"truncated": "Only the first {{minutes}} minutes were transcribed.",
-		"language": "Spoken language"
+		"language": "Spoken language",
+		"output": "Caption style",
+		"outputSubtitles": "Styled subtitles (templates)",
+		"outputAnnotations": "Text annotations"
 	},
 	"emptyState": {
 		"title": "No project open",

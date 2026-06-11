@@ -1,6 +1,7 @@
 export type { CaptionSegmentLayoutOptions } from "./annotationsFromCaptions";
 export {
 	captionSegmentsToAnnotationRegions,
+	captionSegmentsToSubtitleItems,
 	DEFAULT_AUTO_CAPTION_MIN_GAP_MS,
 	groupTimedCaptionWordsIntoLines,
 	mergeAdjacentCaptionSegments,
