@@ -344,7 +344,7 @@ type SelectedSource = {
 	[key: string]: unknown;
 };
 
-type AttachNativeMacWebcamRecordingInput = {
+type AttachWebcamToScreenRecordingInput = {
 	screenVideoPath?: string;
 	recordingId?: number;
 	webcam?: RecordedVideoAssetInput;
@@ -2143,34 +2143,35 @@ export function registerIpcHandlers(
 	// On-disk write streams for in-progress recordings, keyed by output file name.
 	// Chunks are appended as they arrive from ondataavailable so the renderer
 	// never buffers the full video in memory (the #616 fix). Declared before the
-	// handlers that consume it (attach-native-mac-webcam-recording finalizes a
+	// handlers that consume it (attach-webcam-to-screen-recording finalizes a
 	// streamed webcam through this registry).
 	const recordingStreams = new RecordingStreamRegistry();
 	registerRecordingStreamHandlers(ipcMain, recordingStreams, resolveRecordingOutputPath);
 
+	// Attaches a webcam sidecar to a native screen recording that is already on
+	// disk. The renderer only marshals the (small) in-memory webcam bytes — the
+	// multi-GB screen file never round-trips over IPC (issue #11; the renderer
+	// previously readBinaryFile'd the whole screen recording back just to re-send
+	// it to store-recorded-session, which rewrote the same bytes to the same path).
 	ipcMain.handle(
-		"attach-native-mac-webcam-recording",
-		async (_, payload: AttachNativeMacWebcamRecordingInput) => {
+		"attach-webcam-to-screen-recording",
+		async (_, payload: AttachWebcamToScreenRecordingInput) => {
 			// When a streamed webcam is finalized to disk but a later step throws, this
 			// holds its path so the catch can remove the orphaned file.
 			let streamedWebcamRollbackPath: string | undefined;
 			try {
-				if (process.platform !== "darwin") {
-					return { success: false, error: "Native macOS webcam attachment requires macOS." };
-				}
-
 				const screenVideoPath = normalizeVideoSourcePath(payload.screenVideoPath);
 				if (!screenVideoPath || !isPathWithinDir(screenVideoPath, RECORDINGS_DIR)) {
 					return {
 						success: false,
-						error: "Native macOS webcam attachment requires a recording output path.",
+						error: "Webcam attachment requires a recording output path.",
 					};
 				}
 
 				await fs.access(screenVideoPath, fsConstants.R_OK);
 
 				if (!payload.webcam?.fileName) {
-					return { success: false, error: "Native macOS webcam attachment is missing video data." };
+					return { success: false, error: "Webcam attachment is missing video data." };
 				}
 
 				const webcamVideoPath = resolveRecordingOutputPath(payload.webcam.fileName);
@@ -2188,7 +2189,7 @@ export function registerIpcHandlers(
 					if (!payload.webcam.videoData || payload.webcam.videoData.byteLength === 0) {
 						return {
 							success: false,
-							error: "Native macOS webcam attachment is missing video data.",
+							error: "Webcam attachment is missing video data.",
 						};
 					}
 					await fs.writeFile(webcamVideoPath, Buffer.from(payload.webcam.videoData));
@@ -2218,10 +2219,10 @@ export function registerIpcHandlers(
 					success: true,
 					path: screenVideoPath,
 					session,
-					message: "Native macOS webcam recording attached successfully",
+					message: "Webcam recording attached successfully",
 				};
 			} catch (error) {
-				console.error("Failed to attach native macOS webcam recording:", error);
+				console.error("Failed to attach webcam recording:", error);
 				// A streamed webcam was already finalized to disk before this failure;
 				// remove the orphan so no stray *-webcam.webm lingers without a session.
 				if (streamedWebcamRollbackPath) {

@@ -150,7 +150,7 @@ interface Window {
 			discarded?: boolean;
 			error?: string;
 		}>;
-		attachNativeMacWebcamRecording: (payload: {
+		attachWebcamToScreenRecording: (payload: {
 			screenVideoPath: string;
 			recordingId: number;
 			webcam: import("../src/lib/recordingSession").RecordedVideoAssetInput;

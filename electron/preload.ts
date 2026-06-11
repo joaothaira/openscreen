@@ -118,14 +118,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	stopNativeMacRecording: (discard?: boolean) => {
 		return ipcRenderer.invoke("stop-native-mac-recording", discard);
 	},
-	attachNativeMacWebcamRecording: (payload: {
+	attachWebcamToScreenRecording: (payload: {
 		screenVideoPath: string;
 		recordingId: number;
 		webcam: { fileName: string; videoData: ArrayBuffer };
 		cursorCaptureMode?: import("../src/lib/recordingSession").CursorCaptureMode;
 		durationMs?: number;
 	}) => {
-		return ipcRenderer.invoke("attach-native-mac-webcam-recording", payload);
+		return ipcRenderer.invoke("attach-webcam-to-screen-recording", payload);
 	},
 	getCursorTelemetry: (videoPath?: string) => {
 		return ipcRenderer.invoke("get-cursor-telemetry", videoPath);
