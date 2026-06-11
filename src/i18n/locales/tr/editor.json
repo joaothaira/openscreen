@@ -61,7 +61,8 @@
 		"noneHeard": "Konuşma algılanmadı.",
 		"noAudio": "Bu videoda yazıya dökülebilecek kullanılabilir bir ses yok.",
 		"failed": "Altyazılar oluşturulamadı.",
-		"truncated": "Yalnızca ilk {{minutes}} dakika yazıya döküldü."
+		"truncated": "Yalnızca ilk {{minutes}} dakika yazıya döküldü.",
+		"language": "Spoken language"
 	},
 	"emptyState": {
 		"title": "Açık proje yok",

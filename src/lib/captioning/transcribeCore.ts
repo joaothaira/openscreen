@@ -127,15 +127,19 @@ function segmentsFromTranscriberChunks(
 async function runTranscriberOnSlice(
 	transcriber: TranscriberFn,
 	samples: Float32Array,
-	opts: { forceFullSequences: boolean; timestampMode: "word" | "phrase" },
+	opts: { forceFullSequences: boolean; timestampMode: "word" | "phrase"; language?: string },
 ): Promise<unknown> {
 	const durationSec = samples.length / 16_000;
 	// Only chunk long clips; short-audio chunking regressed some Whisper.js runs (empty chunks).
 	const chunking = durationSec > 30 ? { chunk_length_s: 30, stride_length_s: 5 } : {};
+	// Forcing the language skips Whisper's detection pass, which is the dominant
+	// failure mode on non-English audio (a misdetect degrades the whole transcript).
+	const language = opts.language ? { language: opts.language, task: "transcribe" } : {};
 	return transcriber(samples, {
 		return_timestamps: opts.timestampMode === "word" ? "word" : true,
 		force_full_sequences: opts.forceFullSequences,
 		...chunking,
+		...language,
 	});
 }
 
@@ -185,6 +189,7 @@ export async function runTranscription(
 	transcriber: TranscriberFn,
 	samples: Float32Array,
 	trims: TrimRegion[],
+	language?: string,
 ): Promise<TranscribeMono16kResult> {
 	const transcribeOne = async (
 		ignoreTrims: boolean,
@@ -198,6 +203,7 @@ export async function runTranscription(
 				const result = await runTranscriberOnSlice(transcriber, slice, {
 					forceFullSequences,
 					timestampMode,
+					language,
 				});
 				return segmentsFromTranscriberChunks(
 					extractChunksFromAsrResult(result),
@@ -223,6 +229,7 @@ export async function runTranscription(
 				const result = await runTranscriberOnSlice(transcriber, slice, {
 					forceFullSequences,
 					timestampMode,
+					language,
 				});
 				const tOff = offset / 16_000;
 				all.push(

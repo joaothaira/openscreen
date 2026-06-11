@@ -17,7 +17,9 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "caption-assets");
-const MODEL_ID = "Xenova/whisper-tiny";
+// whisper-small: tiny's transcription quality (esp. with language autodetect on
+// non-English audio) was too unreliable to ship as the only captioning path.
+const MODEL_ID = "Xenova/whisper-small";
 const HF_BASE = `https://huggingface.co/${MODEL_ID}/resolve/main`;
 
 // Small config/tokenizer/preprocessor files plus the quantized ONNX the ASR pipeline loads by

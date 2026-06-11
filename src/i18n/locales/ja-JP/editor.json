@@ -61,7 +61,8 @@
 		"noneHeard": "音声が検出されませんでした。",
 		"noAudio": "この動画には書き起こしに使える音声がありません。",
 		"failed": "キャプションを生成できませんでした。",
-		"truncated": "最初の {{minutes}} 分のみが書き起こされました。"
+		"truncated": "最初の {{minutes}} 分のみが書き起こされました。",
+		"language": "Spoken language"
 	},
 	"emptyState": {
 		"title": "プロジェクトが開かれていません",

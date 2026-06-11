@@ -63,18 +63,20 @@ async function loadTranscriber(opts: {
 			// Dev (http://localhost): fetch from the remote CDN, which works there.
 			env.allowLocalModels = false;
 		}
-		// Default tiny weights only: the `output_attentions` revision regresses inference in
-		// some environments (empty chunks, thrown errors) while phrase mode works on this model.
+		// Default weights only: the `output_attentions` revision regresses inference in
+		// some environments (empty chunks, thrown errors) while phrase mode works.
+		// whisper-small over tiny: tiny's accuracy (especially on non-English audio)
+		// was too unreliable; small matches the fork's proven extract-subtitles setup.
 		const transcriber = (await pipeline(
 			"automatic-speech-recognition",
-			"Xenova/whisper-tiny",
+			"Xenova/whisper-small",
 		)) as unknown as TranscriberFn;
 		return transcriber;
 	});
 }
 
 self.onmessage = async (event: MessageEvent<TranscribeWorkerRequest>) => {
-	const { samples, trimRegions, useLocalModels, assetBaseUrl } = event.data;
+	const { samples, trimRegions, useLocalModels, assetBaseUrl, language } = event.data;
 	try {
 		post({ type: "status", phase: "model" });
 		const transcriber = await loadTranscriber({ useLocalModels, assetBaseUrl });
@@ -84,6 +86,7 @@ self.onmessage = async (event: MessageEvent<TranscribeWorkerRequest>) => {
 			transcriber,
 			samples,
 			trimRegions ?? [],
+			language,
 		);
 
 		post({ type: "result", segments, granularity });

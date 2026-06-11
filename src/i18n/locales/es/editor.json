@@ -61,7 +61,8 @@
 		"noneHeard": "No se detectó voz.",
 		"noAudio": "Este video no tiene audio utilizable para transcribir.",
 		"failed": "No se pudieron generar los subtítulos.",
-		"truncated": "Solo se transcribieron los primeros {{minutes}} minutos."
+		"truncated": "Solo se transcribieron los primeros {{minutes}} minutos.",
+		"language": "Spoken language"
 	},
 	"emptyState": {
 		"title": "No hay proyecto abierto",

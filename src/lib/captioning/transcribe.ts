@@ -26,6 +26,8 @@ export interface TranscribeWorkerRequest {
 	useLocalModels: boolean;
 	/** Base URL of bundled resources (packaged: resourcesPath file:// URL); used when `useLocalModels`. */
 	assetBaseUrl?: string;
+	/** Whisper language name (e.g. "portuguese"); skips autodetection when set. */
+	language?: string;
 }
 
 /** Messages the transcription worker posts back to the renderer. */
@@ -47,6 +49,8 @@ export function transcribeMono16kToSegments(
 		trimRegions?: TrimRegion[];
 		onStatus?: (phase: "model" | "transcribe") => void;
 		signal?: AbortSignal;
+		/** Whisper language name (e.g. "portuguese"); skips autodetection when set. */
+		language?: string;
 	},
 ): Promise<TranscribeMono16kResult> {
 	if (options?.signal?.aborted) {
@@ -100,6 +104,7 @@ export function transcribeMono16kToSegments(
 			trimRegions: options?.trimRegions ?? [],
 			useLocalModels,
 			assetBaseUrl,
+			language: options?.language,
 		};
 		worker.postMessage(request);
 	});
