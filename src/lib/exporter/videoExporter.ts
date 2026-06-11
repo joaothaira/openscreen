@@ -11,6 +11,7 @@ import type {
 	WebcamSegment,
 	ZoomRegion,
 } from "@/components/video-editor/types";
+import type { CursorRecordingData } from "@/native/contracts";
 import { AudioProcessor } from "./audioEncoder";
 import { FrameRenderer } from "./frameRenderer";
 import { VideoMuxer } from "./muxer";
@@ -38,11 +39,20 @@ interface VideoExporterConfig extends ExportConfig {
 	cropRegion: CropRegion;
 	webcamLayoutPreset?: WebcamLayoutPreset;
 	webcamMaskShape?: WebcamMaskShape;
+	webcamMirrored?: boolean;
+	webcamReactiveZoom?: boolean;
 	webcamSizePreset?: import("@/components/video-editor/types").WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	webcamCornerPreset?: import("@/components/video-editor/types").WebcamCornerPreset | null;
 	webcamStackPosition?: import("@/components/video-editor/types").WebcamStackPosition | null;
 	webcamFocusZoom?: number;
+	cursorRecordingData?: CursorRecordingData | null;
+	cursorScale?: number;
+	cursorSmoothing?: number;
+	cursorMotionBlur?: number;
+	cursorClickBounce?: number;
+	cursorClipToBounds?: boolean;
+	cursorTheme?: string;
 	annotationRegions?: AnnotationRegion[];
 	webcamFocusRegions?: WebcamFocusRegion[];
 	previewWidth?: number;
@@ -146,11 +156,20 @@ export class VideoExporter {
 				borderRadius: this.config.borderRadius,
 				padding: this.config.padding,
 				cropRegion: this.config.cropRegion,
+				cursorRecordingData: this.config.cursorRecordingData,
+				cursorScale: this.config.cursorScale,
+				cursorSmoothing: this.config.cursorSmoothing,
+				cursorMotionBlur: this.config.cursorMotionBlur,
+				cursorClickBounce: this.config.cursorClickBounce,
+				cursorClipToBounds: this.config.cursorClipToBounds,
+				cursorTheme: this.config.cursorTheme,
 				videoWidth: videoInfo.width,
 				videoHeight: videoInfo.height,
 				webcamSize,
 				webcamLayoutPreset: this.config.webcamLayoutPreset,
 				webcamMaskShape: this.config.webcamMaskShape,
+				webcamMirrored: this.config.webcamMirrored,
+				webcamReactiveZoom: this.config.webcamReactiveZoom,
 				webcamSizePreset: this.config.webcamSizePreset,
 				webcamPosition: this.config.webcamPosition,
 				webcamCornerPreset: this.config.webcamCornerPreset,
@@ -335,8 +354,7 @@ export class VideoExporter {
 						);
 					} else {
 						console.log("[VideoExporter] Processing audio track...");
-						const exportCodec =
-							await AudioProcessor.selectSupportedExportCodecForSource(demuxer);
+						const exportCodec = await AudioProcessor.selectSupportedExportCodecForSource(demuxer);
 						if (exportCodec) {
 							await this.audioProcessor.process(
 								demuxer,

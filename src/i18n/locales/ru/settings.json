@@ -8,7 +8,8 @@
 			"title": "Режим фокуса",
 			"manual": "Ручной",
 			"auto": "Авто",
-			"autoDescription": "Камера следует за записанной позицией курсора"
+			"autoDescription": "Камера следует за записанной позицией курсора",
+			"lockedDisclaimer": "Controlled by the global Auto-Focus toggle in the timeline. Turn it off to set focus mode per zoom."
 		},
 		"threeD": {
 			"title": "3D вращение",
@@ -46,6 +47,9 @@
 		"webcamShape": "Форма камеры",
 		"webcamSize": "Размер веб-камеры",
 		"noWebcam": "Без веб-камеры",
+		"mirrorWebcam": "Зеркалить веб-камеру",
+		"reactiveWebcam": "Уменьшать при зуме",
+		"reactiveWebcamDescription": "Камера плавно уменьшается во время приближения, чтобы не мешать.",
 		"webcamSizeSmall": "S",
 		"webcamSizeMedium": "M",
 		"webcamSizeLarge": "L",
@@ -226,12 +230,15 @@
 		"errorLoadFailed": "Не удалось загрузить шрифт. Пожалуйста, проверьте правильность URL Google Fonts."
 	},
 	"cursor": {
+		"theme": "Стиль курсора",
+		"themeDefault": "По умолчанию",
 		"show": "Показывать курсор",
 		"size": "Размер",
 		"smoothing": "Сглаживание",
 		"motionBlur": "Размытие движения",
 		"clickBounce": "Отскок при клике",
-		"clipToBounds": "Обрезать по холсту"
+		"clipToBounds": "Обрезать по холсту",
+		"clipToBoundsDescription": "Keeps the cursor inside the video frame. Turn off to let the cursor extend past the edges - useful when zoomed in or panned."
 	},
 	"language": {
 		"title": "Язык"

@@ -8,7 +8,8 @@
 			"title": "对焦模式",
 			"manual": "手动",
 			"auto": "自动",
-			"autoDescription": "摄像头跟随录制时的光标位置"
+			"autoDescription": "摄像头跟随录制时的光标位置",
+			"lockedDisclaimer": "Controlled by the global Auto-Focus toggle in the timeline. Turn it off to set focus mode per zoom."
 		},
 		"threeD": {
 			"title": "3D 旋转",
@@ -43,9 +44,12 @@
 		"pictureInPicture": "画中画",
 		"verticalStack": "垂直堆叠",
 		"dualFrame": "双画框",
-		"noWebcam": "无摄像头",
 		"webcamShape": "摄像头形状",
 		"webcamSize": "摄像头大小",
+		"noWebcam": "无摄像头",
+		"mirrorWebcam": "镜像摄像头",
+		"reactiveWebcam": "缩放时缩小",
+		"reactiveWebcamDescription": "放大视频时摄像头会平滑缩小，以免遮挡内容。",
 		"webcamSizeSmall": "小",
 		"webcamSizeMedium": "中",
 		"webcamSizeLarge": "大",
@@ -215,12 +219,15 @@
 		"errorLoadFailed": "无法加载该字体。请确认 Google Fonts URL 是否正确。"
 	},
 	"cursor": {
+		"theme": "光标样式",
+		"themeDefault": "默认",
 		"show": "显示光标",
 		"size": "大小",
 		"smoothing": "平滑",
 		"motionBlur": "运动模糊",
 		"clickBounce": "点击弹跳",
-		"clipToBounds": "裁剪到画布"
+		"clipToBounds": "裁剪到画布",
+		"clipToBoundsDescription": "Keeps the cursor inside the video frame. Turn off to let the cursor extend past the edges - useful when zoomed in or panned."
 	},
 	"language": {
 		"title": "语言"

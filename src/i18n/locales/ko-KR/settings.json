@@ -9,7 +9,8 @@
 			"title": "포커스 모드",
 			"manual": "수동",
 			"auto": "자동",
-			"autoDescription": "녹화된 커서 위치를 따라 카메라가 이동합니다"
+			"autoDescription": "녹화된 커서 위치를 따라 카메라가 이동합니다",
+			"lockedDisclaimer": "Controlled by the global Auto-Focus toggle in the timeline. Turn it off to set focus mode per zoom."
 		},
 		"threeD": {
 			"title": "3D 회전",
@@ -46,6 +47,9 @@
 		"webcamSize": "웹캠 크기",
 		"dualFrame": "듀얼 프레임",
 		"noWebcam": "웹캠 없음",
+		"mirrorWebcam": "웹캠 미러링",
+		"reactiveWebcam": "확대 시 축소",
+		"reactiveWebcamDescription": "확대하는 동안 카메라가 부드럽게 작아져 방해되지 않습니다.",
 		"webcamSizeSmall": "S",
 		"webcamSizeMedium": "M",
 		"webcamSizeLarge": "L",
@@ -226,12 +230,15 @@
 		"errorLoadFailed": "폰트를 불러올 수 없습니다. Google Fonts URL이 올바른지 확인해 주세요."
 	},
 	"cursor": {
+		"theme": "커서 스타일",
+		"themeDefault": "기본",
 		"show": "커서 표시",
 		"size": "크기",
 		"smoothing": "부드러움",
 		"motionBlur": "모션 블러",
 		"clickBounce": "클릭 바운스",
-		"clipToBounds": "캔버스에 맞춰 자르기"
+		"clipToBounds": "캔버스에 맞춰 자르기",
+		"clipToBoundsDescription": "Keeps the cursor inside the video frame. Turn off to let the cursor extend past the edges - useful when zoomed in or panned."
 	},
 	"language": {
 		"title": "언어"

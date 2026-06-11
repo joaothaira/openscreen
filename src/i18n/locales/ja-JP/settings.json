@@ -8,7 +8,8 @@
 			"title": "フォーカスモード",
 			"manual": "手動",
 			"auto": "自動",
-			"autoDescription": "表示範囲が録画中のカーソル位置に追従します"
+			"autoDescription": "表示範囲が録画中のカーソル位置に追従します",
+			"lockedDisclaimer": "Controlled by the global Auto-Focus toggle in the timeline. Turn it off to set focus mode per zoom."
 		},
 		"threeD": {
 			"title": "3D回転",
@@ -46,6 +47,9 @@
 		"webcamShape": "カメラの形状",
 		"webcamSize": "カメラのサイズ",
 		"noWebcam": "Webカメラなし",
+		"mirrorWebcam": "Webカメラを反転",
+		"reactiveWebcam": "ズーム時に縮小",
+		"reactiveWebcamDescription": "ズーム中はカメラがスムーズに縮小し、邪魔になりません。",
 		"webcamSizeSmall": "S",
 		"webcamSizeMedium": "M",
 		"webcamSizeLarge": "L",
@@ -226,12 +230,15 @@
 		"errorLoadFailed": "フォントを読み込めませんでした。GoogleフォントのURLが正しいことを確認してください。"
 	},
 	"cursor": {
+		"theme": "カーソルのスタイル",
+		"themeDefault": "デフォルト",
 		"show": "カーソルを表示",
 		"size": "サイズ",
 		"smoothing": "スムージング",
 		"motionBlur": "モーションブラー",
 		"clickBounce": "クリックバウンス",
-		"clipToBounds": "キャンバスにクリップ"
+		"clipToBounds": "キャンバスにクリップ",
+		"clipToBoundsDescription": "Keeps the cursor inside the video frame. Turn off to let the cursor extend past the edges - useful when zoomed in or panned."
 	},
 	"language": {
 		"title": "言語"

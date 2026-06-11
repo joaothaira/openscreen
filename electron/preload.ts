@@ -29,6 +29,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	moveHudOverlayBy: (deltaX: number, deltaY: number) => {
 		ipcRenderer.send("hud-overlay-move-by", deltaX, deltaY);
 	},
+	setHudOverlaySize: (width: number, height: number) => {
+		ipcRenderer.send("hud-overlay-set-size", width, height);
+	},
 	getSources: async (opts: Electron.SourcesOptions) => {
 		return await ipcRenderer.invoke("get-sources", opts);
 	},
@@ -170,8 +173,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	saveProjectFile: (projectData: unknown, suggestedName?: string, existingProjectPath?: string) => {
 		return ipcRenderer.invoke("save-project-file", projectData, suggestedName, existingProjectPath);
 	},
-	loadProjectFile: () => {
-		return ipcRenderer.invoke("load-project-file");
+	loadProjectFile: (projectFolder?: string) => {
+		return ipcRenderer.invoke("load-project-file", projectFolder);
 	},
 	loadProjectFileFromPath: (filePath: string) => {
 		return ipcRenderer.invoke("load-project-file-from-path", filePath);

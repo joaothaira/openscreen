@@ -12,6 +12,7 @@ import type {
 	WebcamSegment,
 	ZoomRegion,
 } from "@/components/video-editor/types";
+import type { CursorRecordingData } from "@/native/contracts";
 import { FrameRenderer } from "./frameRenderer";
 import { SegmentedWebcamSource } from "./segmentedWebcamSource";
 import { StreamingVideoDecoder } from "./streamingDecoder";
@@ -47,11 +48,20 @@ interface GifExporterConfig {
 	cropRegion: CropRegion;
 	webcamLayoutPreset?: WebcamLayoutPreset;
 	webcamMaskShape?: WebcamMaskShape;
+	webcamMirrored?: boolean;
+	webcamReactiveZoom?: boolean;
 	webcamSizePreset?: import("@/components/video-editor/types").WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	webcamCornerPreset?: import("@/components/video-editor/types").WebcamCornerPreset | null;
 	webcamStackPosition?: import("@/components/video-editor/types").WebcamStackPosition | null;
 	webcamFocusZoom?: number;
+	cursorRecordingData?: CursorRecordingData | null;
+	cursorScale?: number;
+	cursorSmoothing?: number;
+	cursorMotionBlur?: number;
+	cursorClickBounce?: number;
+	cursorClipToBounds?: boolean;
+	cursorTheme?: string;
 	annotationRegions?: AnnotationRegion[];
 	webcamFocusRegions?: WebcamFocusRegion[];
 	previewWidth?: number;
@@ -129,7 +139,6 @@ export class GifExporter {
 			this.cleanup();
 			this.cancelled = false;
 
-			// Initialize streaming decoder and load video metadata
 			this.streamingDecoder = new StreamingVideoDecoder();
 			const videoInfo = await this.streamingDecoder.loadMetadata(this.config.videoUrl);
 
@@ -146,7 +155,6 @@ export class GifExporter {
 				}
 			}
 
-			// Initialize frame renderer
 			this.renderer = new FrameRenderer({
 				width: this.config.width,
 				height: this.config.height,
@@ -159,11 +167,20 @@ export class GifExporter {
 				borderRadius: this.config.borderRadius,
 				padding: this.config.padding,
 				cropRegion: this.config.cropRegion,
+				cursorRecordingData: this.config.cursorRecordingData,
+				cursorScale: this.config.cursorScale,
+				cursorSmoothing: this.config.cursorSmoothing,
+				cursorMotionBlur: this.config.cursorMotionBlur,
+				cursorClickBounce: this.config.cursorClickBounce,
+				cursorClipToBounds: this.config.cursorClipToBounds,
+				cursorTheme: this.config.cursorTheme,
 				videoWidth: videoInfo.width,
 				videoHeight: videoInfo.height,
 				webcamSize,
 				webcamLayoutPreset: this.config.webcamLayoutPreset,
 				webcamMaskShape: this.config.webcamMaskShape,
+				webcamMirrored: this.config.webcamMirrored,
+				webcamReactiveZoom: this.config.webcamReactiveZoom,
 				webcamSizePreset: this.config.webcamSizePreset,
 				webcamPosition: this.config.webcamPosition,
 				webcamCornerPreset: this.config.webcamCornerPreset,
@@ -181,8 +198,7 @@ export class GifExporter {
 			});
 			await this.renderer.initialize();
 
-			// Initialize GIF encoder
-			// Loop: 0 = infinite loop, 1 = play once (no loop)
+			// gif.js repeat: 0 = infinite loop, 1 = play once
 			const repeat = this.config.loop ? 0 : 1;
 			const cores = navigator.hardwareConcurrency || 4;
 			const WORKER_COUNT = Math.max(1, Math.min(8, cores - 1));
@@ -198,15 +214,14 @@ export class GifExporter {
 				dither: "FloydSteinberg",
 			});
 
-			// Calculate effective duration and frame count (excluding trim regions)
-			const effectiveDuration = this.streamingDecoder.getExportMetrics(
+			// Effective duration and frame count, excluding trim regions
+			const { effectiveDuration, totalFrames } = this.streamingDecoder.getExportMetrics(
 				this.config.frameRate,
 				this.config.trimRegions,
 				this.config.speedRegions,
-			).effectiveDuration;
-			const totalFrames = Math.ceil(effectiveDuration * this.config.frameRate);
+			);
 
-			// Calculate frame delay in milliseconds (gif.js uses ms)
+			// gif.js wants frame delay in ms
 			const frameDelay = Math.round(1000 / this.config.frameRate);
 
 			console.log("[GifExporter] Original duration:", videoInfo.duration, "s");
@@ -224,7 +239,7 @@ export class GifExporter {
 				this.webcamSource.start(this.config.frameRate);
 			}
 
-			// Stream decode and process frames — no seeking!
+			// Stream decode and process frames, no seeking
 			await this.streamingDecoder.decodeAll(
 				this.config.frameRate,
 				this.config.trimRegions,
@@ -244,19 +259,15 @@ export class GifExporter {
 							return;
 						}
 
-						// Render the frame with all effects using source timestamp
-						const sourceTimestampUs = sourceTimestampMs * 1000; // Convert to microseconds
+						const sourceTimestampUs = sourceTimestampMs * 1000; // us
 						await renderer.renderFrame(videoFrame, sourceTimestampUs, webcamFrame);
 
-						// Get the rendered canvas and add to GIF
 						const canvas = renderer.getCanvas();
 
-						// Add frame to GIF encoder with delay
 						this.gif!.addFrame(canvas, { delay: frameDelay, copy: true });
 
 						frameIndex++;
 
-						// Update progress
 						if (this.config.onProgress) {
 							this.config.onProgress({
 								currentFrame: frameIndex,
@@ -278,7 +289,7 @@ export class GifExporter {
 
 			this.webcamSource?.stop();
 
-			// Update progress to show we're now in the finalizing phase
+			// Now in the finalizing phase
 			if (this.config.onProgress) {
 				this.config.onProgress({
 					currentFrame: totalFrames,
@@ -289,13 +300,11 @@ export class GifExporter {
 				});
 			}
 
-			// Render the GIF
 			const blob = await new Promise<Blob>((resolve, _reject) => {
 				this.gif!.on("finished", (blob: Blob) => {
 					resolve(blob);
 				});
 
-				// Track rendering progress
 				this.gif!.on("progress", (progress: number) => {
 					if (this.config.onProgress) {
 						this.config.onProgress({
@@ -309,7 +318,7 @@ export class GifExporter {
 					}
 				});
 
-				// gif.js doesn't have a typed 'error' event, but we can catch errors in the try/catch
+				// gif.js has no typed 'error' event; the outer try/catch handles failures
 				this.gif!.render();
 			});
 

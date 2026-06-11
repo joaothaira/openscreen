@@ -8,7 +8,8 @@
 			"title": "對焦模式",
 			"manual": "手動",
 			"auto": "自動",
-			"autoDescription": "攝影機跟隨錄製時的游標位置"
+			"autoDescription": "攝影機跟隨錄製時的游標位置",
+			"lockedDisclaimer": "Controlled by the global Auto-Focus toggle in the timeline. Turn it off to set focus mode per zoom."
 		},
 		"speed": {},
 		"threeD": {
@@ -47,6 +48,9 @@
 		"webcamShape": "攝影機形狀",
 		"webcamSize": "攝影機大小",
 		"noWebcam": "無網路攝影機",
+		"mirrorWebcam": "鏡像攝影機",
+		"reactiveWebcam": "縮放時縮小",
+		"reactiveWebcamDescription": "放大影片時鏡頭會平滑縮小，以免遮擋內容。",
 		"webcamSizeSmall": "S",
 		"webcamSizeMedium": "M",
 		"webcamSizeLarge": "L",
@@ -216,12 +220,15 @@
 		"errorLoadFailed": "無法載入該字體。請確認 Google Fonts URL 是否正確。"
 	},
 	"cursor": {
+		"theme": "游標樣式",
+		"themeDefault": "預設",
 		"show": "顯示游標",
 		"size": "大小",
 		"smoothing": "平滑",
 		"motionBlur": "動態模糊",
 		"clickBounce": "點擊彈跳",
-		"clipToBounds": "裁切至畫布"
+		"clipToBounds": "裁切至畫布",
+		"clipToBoundsDescription": "Keeps the cursor inside the video frame. Turn off to let the cursor extend past the edges - useful when zoomed in or panned."
 	},
 	"language": {
 		"title": "語言"

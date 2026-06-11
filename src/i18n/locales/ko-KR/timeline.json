@@ -6,7 +6,11 @@
 		"addAnnotation": "주석 추가 (A)",
 		"addSpeed": "속도 추가 (S)",
 		"addBlur": "블러 추가 (B)",
-		"addWebcamFocus": "Add Webcam Focus"
+		"addWebcamFocus": "Add Webcam Focus",
+		"autoFocusAllOff": "Auto-Focus all zooms (camera follows the cursor)",
+		"autoFocusAllOn": "Auto-Focus on for all zooms — click to switch all to manual",
+		"autoZoomOff": "Auto zoom suggestions off — click to suggest zooms from cursor",
+		"autoZoomOn": "Auto zoom suggestions on — click to remove suggested zooms"
 	},
 	"hints": {
 		"pressZoom": "Z를 눌러 줌 추가",

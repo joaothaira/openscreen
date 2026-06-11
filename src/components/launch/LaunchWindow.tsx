@@ -21,13 +21,13 @@ import {
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { useI18n, useScopedT } from "@/contexts/I18nContext";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
+import { loadUserPreferences, saveUserPreferences } from "@/lib/userPreferences";
 import { nativeBridgeClient } from "@/native";
 import { useAudioLevelMeter } from "../../hooks/useAudioLevelMeter";
 import { useCameraDevices } from "../../hooks/useCameraDevices";
 import { useMicrophoneDevices } from "../../hooks/useMicrophoneDevices";
 import { useScreenRecorder } from "../../hooks/useScreenRecorder";
 import { requestCameraAccess } from "../../lib/requestCameraAccess";
-import { loadUserPreferences, saveUserPreferences } from "../../lib/userPreferences";
 import { formatTimePadded } from "../../utils/timeUtils";
 import { AudioLevelMeter } from "../ui/audio-level-meter";
 import { Button } from "../ui/button";
@@ -36,6 +36,11 @@ import styles from "./LaunchWindow.module.css";
 import { openSourceSelectorWithPermissionRetry } from "./openSourceSelectorFlow";
 
 const ICON_SIZE = 20;
+
+// Vertical tray gap (px): bar's `bottom-5` (20px) plus an 8px gap.
+const HUD_DEVICE_POPUP_GAP = 28;
+// Horizontal layout: mirrors the `bottom-[68px]` class on the popup element.
+const HUD_DEVICE_POPUP_HORIZONTAL_BOTTOM = 68;
 
 const ICON_CONFIG = {
 	drag: { icon: RxDragHandleDots2, size: ICON_SIZE },
@@ -140,6 +145,10 @@ export function LaunchWindow() {
 	const [supportsCursorModeToggle, setSupportsCursorModeToggle] = useState(false);
 	const languageTriggerRef = useRef<HTMLButtonElement | null>(null);
 	const languageMenuPanelRef = useRef<HTMLDivElement | null>(null);
+	const hudBarRef = useRef<HTMLDivElement | null>(null);
+	const deviceSelectorRef = useRef<HTMLDivElement | null>(null);
+	// Measured bar height, anchors the popups above the tall vertical tray so they don't overlap it.
+	const [hudBarHeight, setHudBarHeight] = useState(0);
 	const [languageMenuStyle, setLanguageMenuStyle] = useState<{
 		right: number;
 		top: number;
@@ -291,6 +300,106 @@ export function LaunchWindow() {
 		return () => cancelAnimationFrame(id);
 	}, [isLanguageMenuOpen]);
 
+	// Resize the overlay window to fit content, else the taller vertical tray gets clipped
+	// and scrolls. Measure from the window's bottom-centre (the anchor the main process
+	// preserves) so fixed bottom/centre offsets keep this stable and it doesn't oscillate.
+	const lastHudSizeRef = useRef({ width: 0, height: 0 });
+	const measureHudSize = useCallback(() => {
+		const barEl = hudBarRef.current;
+		if (!barEl || !window.electronAPI?.setHudOverlaySize) return;
+
+		// Breathing room so the drop shadow isn't clipped. TOP_MARGIN must also exceed the
+		// slack in the bar's `max-h: calc(100vh - 2.5rem)` cap (40px reserved - 20px bottom
+		// gap = 20px) so the window stays tall enough that the cap never engages and adds a scrollbar.
+		const SIDE_MARGIN = 24;
+		const TOP_MARGIN = 24;
+		// Wide enough that the language menu (11rem) never clips, even when the bar is narrow.
+		const MIN_WIDTH = 220;
+
+		const viewportHeight = window.innerHeight;
+		const centerX = window.innerWidth / 2;
+
+		// Use natural (scroll) size, not the clipped box: vertical mode's max-h cap is a
+		// small-screen fallback, and reading clipped height would pin the window to it.
+		// scrollHeight gives full content height; the cap only engages when the main process clamps to screen.
+		let topFromBottom = viewportHeight - barEl.getBoundingClientRect().bottom + barEl.scrollHeight;
+		let halfWidth = barEl.scrollWidth / 2;
+
+		// Popups drive both dimensions too. Their vertical anchor depends on bar height,
+		// which is fed back through React state and lags by a frame, so derive their top
+		// edge from the bar's natural height instead of the stale rendered position. Keeps
+		// one measurement pass authoritative and avoids a feedback re-measure.
+		if (deviceSelectorRef.current) {
+			const rect = deviceSelectorRef.current.getBoundingClientRect();
+			if (rect.width !== 0 || rect.height !== 0) {
+				const popupBottomOffset =
+					trayLayout === "vertical"
+						? barEl.scrollHeight + HUD_DEVICE_POPUP_GAP
+						: HUD_DEVICE_POPUP_HORIZONTAL_BOTTOM;
+				topFromBottom = Math.max(topFromBottom, popupBottomOffset + rect.height);
+				halfWidth = Math.max(halfWidth, rect.width / 2);
+			}
+		}
+
+		// The language menu scrolls within available height, so it only influences width.
+		// Its presence in the DOM means it's open.
+		if (languageMenuPanelRef.current) {
+			const rect = languageMenuPanelRef.current.getBoundingClientRect();
+			halfWidth = Math.max(halfWidth, centerX - rect.left, rect.right - centerX);
+		}
+
+		setHudBarHeight((prev) => {
+			const next = Math.round(barEl.scrollHeight);
+			return Math.abs(prev - next) > 1 ? next : prev;
+		});
+
+		const width = Math.max(MIN_WIDTH, Math.ceil(halfWidth * 2) + SIDE_MARGIN);
+		const height = Math.ceil(topFromBottom) + TOP_MARGIN;
+		if (width === lastHudSizeRef.current.width && height === lastHudSizeRef.current.height) {
+			return;
+		}
+		lastHudSizeRef.current = { width, height };
+		window.electronAPI.setHudOverlaySize(width, height);
+	}, [trayLayout]);
+
+	// One persistent observer; elements wire themselves up via callback refs as they
+	// mount/unmount so measurement re-runs without recreating it or threading mount state through deps.
+	const hudResizeObserverRef = useRef<ResizeObserver | null>(null);
+	useEffect(() => {
+		const observer = new ResizeObserver(() => measureHudSize());
+		hudResizeObserverRef.current = observer;
+		if (hudBarRef.current) observer.observe(hudBarRef.current);
+		if (deviceSelectorRef.current) observer.observe(deviceSelectorRef.current);
+		measureHudSize();
+		return () => {
+			observer.disconnect();
+			hudResizeObserverRef.current = null;
+		};
+	}, [measureHudSize]);
+
+	const observeHudElement = useCallback(
+		<T extends HTMLElement>(el: T | null, ref: React.MutableRefObject<T | null>) => {
+			const observer = hudResizeObserverRef.current;
+			if (ref.current && observer) observer.unobserve(ref.current);
+			ref.current = el;
+			if (el && observer) observer.observe(el);
+			measureHudSize();
+		},
+		[measureHudSize],
+	);
+	const setHudBarEl = useCallback(
+		(el: HTMLDivElement | null) => observeHudElement(el, hudBarRef),
+		[observeHudElement],
+	);
+	const setDeviceSelectorEl = useCallback(
+		(el: HTMLDivElement | null) => observeHudElement(el, deviceSelectorRef),
+		[observeHudElement],
+	);
+	const setLanguageMenuPanelEl = useCallback(
+		(el: HTMLDivElement | null) => observeHudElement(el, languageMenuPanelRef),
+		[observeHudElement],
+	);
+
 	const hudMouseEventsEnabledRef = useRef<boolean | undefined>(undefined);
 	const setHudMouseEventsEnabled = useCallback((enabled: boolean) => {
 		if (hudMouseEventsEnabledRef.current === enabled) {
@@ -391,10 +500,8 @@ export function LaunchWindow() {
 	};
 
 	return (
-		// Root fills the HUD window only. Avoid w-screen/h-screen (100vw/100vh):
-		// 100vw can exceed the inner layout width when scrollbars affect the
-		// viewport (notably on Windows), causing a horizontal scrollbar once the
-		// recording toolbar widened (issue #305).
+		// Avoid w-screen/h-screen: 100vw can exceed the inner layout width when scrollbars
+		// affect the viewport (Windows), causing a horizontal scrollbar (issue #305).
 		<div
 			className={`h-full w-full min-w-0 max-w-full overflow-x-hidden overflow-y-hidden bg-transparent ${styles.electronDrag}`}
 			onPointerMove={(event) => {
@@ -446,11 +553,19 @@ export function LaunchWindow() {
 				</div>
 			)}
 
-			{/* Device selectors — fixed above HUD bar, viewport-relative, never clipped */}
+			{/* Device selectors, fixed above HUD bar, viewport-relative, never clipped */}
 			{(showMicControls || showWebcamControls) && (
 				<div
+					ref={setDeviceSelectorEl}
 					data-hud-interactive="true"
-					className={`fixed bottom-[68px] left-1/2 -translate-x-1/2 flex items-center gap-2 animate-mic-panel-in ${styles.electronNoDrag}`}
+					className={`fixed left-1/2 -translate-x-1/2 flex items-center gap-2 animate-mic-panel-in ${trayLayout === "vertical" ? "" : "bottom-[68px]"} ${styles.electronNoDrag}`}
+					style={
+						trayLayout === "vertical"
+							? // Sit above the tall vertical tray, anchored to the measured bar
+								// height. Matches the offset in measureHudSize.
+								{ bottom: hudBarHeight + HUD_DEVICE_POPUP_GAP }
+							: undefined
+					}
 				>
 					{/* Mic selector */}
 					{showMicControls && (
@@ -581,8 +696,9 @@ export function LaunchWindow() {
 				</div>
 			)}
 
-			{/* HUD bar — fixed at bottom center, viewport-relative, never moves */}
+			{/* HUD bar, fixed at bottom center, viewport-relative, never moves */}
 			<div
+				ref={setHudBarEl}
 				data-hud-interactive="true"
 				data-tray-layout={trayLayout}
 				className={`fixed bottom-5 left-1/2 -translate-x-1/2 flex rounded-2xl border border-white/[0.10] bg-[#07080a]/90 shadow-[0_20px_60px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl backdrop-saturate-[140%] ${
@@ -639,6 +755,7 @@ export function LaunchWindow() {
 
 				{/* Source selector */}
 				<button
+					data-testid="launch-source-selector-button"
 					className={`${hudGroupClasses} h-8 ${trayLayout === "vertical" ? "w-8 justify-center px-0" : "px-2.5"} ${styles.electronNoDrag}`}
 					onClick={openSourceSelector}
 					disabled={recording}
@@ -824,7 +941,7 @@ export function LaunchWindow() {
 					{isLanguageMenuOpen
 						? createPortal(
 								<div
-									ref={languageMenuPanelRef}
+									ref={setLanguageMenuPanelEl}
 									data-hud-interactive="true"
 									role="menu"
 									className={`${styles.languageMenuPanel} ${styles.languageMenuScroll} ${styles.electronNoDrag}`}

@@ -48,7 +48,7 @@ interface AnnotationOverlayProps {
 	onBlurDataCommit?: () => void;
 	onClick: (id: string) => void;
 	zIndex: number;
-	isSelectedBoost: boolean; // Boost z-index when selected for easy editing
+	isSelectedBoost: boolean; // raise z-index when selected, for easier editing
 	previewSourceCanvas?: PreviewCanvasSource | null;
 	previewFrameVersion?: number;
 	currentTimeMs: number;
@@ -461,7 +461,6 @@ export function AnnotationOverlay({
 				}}
 			/>
 		);
-
 	};
 
 	const renderContent = () => {
@@ -558,7 +557,10 @@ export function AnnotationOverlay({
 							className="w-full h-full overflow-hidden"
 							style={{ borderRadius: radius > 0 ? `${radius}px` : undefined, opacity: animOpacity }}
 						>
-							<div className="w-full h-full" style={{ transform: animTransform, transformOrigin: "center" }}>
+							<div
+								className="w-full h-full"
+								style={{ transform: animTransform, transformOrigin: "center" }}
+							>
 								<img
 									src={annotation.content}
 									alt="Annotation"
@@ -761,7 +763,7 @@ export function AnnotationOverlay({
 				const yPercent = (d.y / containerHeight) * 100;
 				onPositionChange(annotation.id, { x: xPercent, y: yPercent });
 
-				// Reset dragging flag after a short delay to prevent click event
+				// Delay clearing so the trailing click doesn't fire onClick
 				setTimeout(() => {
 					isDraggingRef.current = false;
 				}, 100);
@@ -800,7 +802,7 @@ export function AnnotationOverlay({
 					"ring-2 ring-[#34B27B] ring-offset-2 ring-offset-transparent",
 			)}
 			style={{
-				zIndex: isSelectedBoost ? zIndex + 1000 : zIndex, // Boost selected annotation to ensure it's on top
+				zIndex: isSelectedBoost ? zIndex + 1000 : zIndex, // keep the selected annotation on top
 				pointerEvents: isSelected ? "auto" : "none",
 				border:
 					isSelected && annotation.type !== "blur" ? "2px solid rgba(52, 178, 123, 0.8)" : "none",

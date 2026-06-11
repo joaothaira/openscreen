@@ -21,15 +21,15 @@ import {
 import {
 	FOCUS_RIGHT_MARGIN_FRACTION,
 	getWebcamLayoutCssBoxShadow,
+	reactiveWebcamScale,
 	type Size,
 	type StyledRenderRect,
 	type WebcamLayoutPreset,
 	type WebcamSizePreset,
 } from "@/lib/compositeLayout";
-import { getCssClipPath } from "@/lib/webcamMaskShapes";
+import { getSmoothedCursorPath } from "@/lib/cursor/cursorPathSmoothing";
 import {
 	createNativeCursorMotionBlurState,
-	createNativeCursorSmoothingState,
 	getNativeCursorClickBounceProgress,
 	getNativeCursorClickBounceScale,
 	getNativeCursorMotionBlurPx,
@@ -37,12 +37,11 @@ import {
 	projectNativeCursorToLocal,
 	projectNativeCursorToStage,
 	resetNativeCursorMotionBlurState,
-	resetNativeCursorSmoothingState,
 	resolveInterpolatedNativeCursorFrame,
 	resolveNativeCursorRenderAsset,
-	smoothNativeCursorSample,
 } from "@/lib/cursor/nativeCursor";
 import { classifyWallpaper, DEFAULT_WALLPAPER, resolveImageWallpaperUrl } from "@/lib/wallpaper";
+import { getCssClipPath } from "@/lib/webcamMaskShapes";
 import type { CursorRecordingData } from "@/native/contracts";
 import {
 	type AspectRatio,
@@ -50,12 +49,12 @@ import {
 	getNativeAspectRatioValue,
 } from "@/utils/aspectRatioUtils";
 import { AnnotationOverlay } from "./AnnotationOverlay";
-import { SubtitleOverlay } from "./SubtitleOverlay";
 import {
 	DEFAULT_CURSOR_SETTINGS,
 	DEFAULT_EDITOR_LAYOUT_SETTINGS,
 	DEFAULT_SOURCE_DIMENSIONS,
 } from "./editorDefaults";
+import { SubtitleOverlay } from "./SubtitleOverlay";
 import {
 	type AnnotationRegion,
 	type BlurData,
@@ -71,19 +70,11 @@ import {
 	type SubtitleStyle,
 	type TrimRegion,
 	type WebcamSegment,
-	ZOOM_DEPTH_SCALES,
 	type ZoomFocus,
 	type ZoomRegion,
 } from "./types";
-import {
-	AUTO_FOLLOW_RAMP_DISTANCE,
-	AUTO_FOLLOW_SMOOTHING_FACTOR,
-	AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
-	DEFAULT_FOCUS,
-	ZOOM_SCALE_DEADZONE,
-	ZOOM_TRANSLATION_DEADZONE_PX,
-} from "./videoPlayback/constants";
-import { adaptiveSmoothFactor, smoothCursorFocus } from "./videoPlayback/cursorFollowUtils";
+import { AUTO_FOLLOW_PARAMS, DEFAULT_FOCUS } from "./videoPlayback/constants";
+import { advanceFollowFocus } from "./videoPlayback/cursorFollowUtils";
 import {
 	DEFAULT_CURSOR_CONFIG,
 	PixiCursorOverlay,
@@ -95,6 +86,7 @@ import { clamp01 } from "./videoPlayback/mathUtils";
 import { updateOverlayIndicator } from "./videoPlayback/overlayUtils";
 import { createVideoEventHandlers } from "./videoPlayback/videoEventHandlers";
 import { findDominantRegion } from "./videoPlayback/zoomRegionUtils";
+import { createZoomSpringState, resetZoomSpring, stepZoomSpring } from "./videoPlayback/zoomSpring";
 import {
 	applyZoomTransform,
 	computeFocusFromTransform,
@@ -108,6 +100,8 @@ interface VideoPlaybackProps {
 	webcamSegments?: WebcamSegment[];
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape?: import("./types").WebcamMaskShape;
+	webcamMirrored?: boolean;
+	webcamReactiveZoom?: boolean;
 	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	webcamCornerPreset?: import("./types").WebcamCornerPreset | null;
@@ -159,6 +153,7 @@ interface VideoPlaybackProps {
 	cursorMotionBlur?: number;
 	cursorClickBounce?: number;
 	cursorClipToBounds?: boolean;
+	cursorTheme?: string;
 	subtitleRegions?: SubtitleItem[];
 	showSubtitles?: boolean;
 	subtitleStyle?: SubtitleStyle;
@@ -239,6 +234,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			webcamSegments = [],
 			webcamLayoutPreset,
 			webcamMaskShape,
+			webcamMirrored = false,
+			webcamReactiveZoom = false,
 			webcamSizePreset,
 			webcamPosition,
 			webcamCornerPreset,
@@ -290,6 +287,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorMotionBlur = DEFAULT_CURSOR_SETTINGS.motionBlur,
 			cursorClickBounce = DEFAULT_CURSOR_SETTINGS.clickBounce,
 			cursorClipToBounds = DEFAULT_CURSOR_SETTINGS.clipToBounds,
+			cursorTheme = DEFAULT_CURSOR_SETTINGS.theme,
 			subtitleRegions = [],
 			showSubtitles = true,
 			subtitleStyle,
@@ -300,6 +298,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const videoRef = useRef<HTMLVideoElement | null>(null);
 		const supplementalAudioRef = useRef<HTMLAudioElement | null>(null);
 		const webcamVideoRef = useRef<HTMLVideoElement | null>(null);
+		const webcamWrapperRef = useRef<HTMLDivElement | null>(null);
+		const webcamReactiveZoomRef = useRef(webcamReactiveZoom);
+		const webcamLayoutPresetRef = useRef(webcamLayoutPreset);
+		const webcamPositionRef = useRef(webcamPosition);
 		const containerRef = useRef<HTMLDivElement | null>(null);
 		const appRef = useRef<Application | null>(null);
 		const videoSpriteRef = useRef<Sprite | null>(null);
@@ -332,6 +334,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			y: 0,
 			appliedScale: 1,
 		});
+		// Spring that chases the eased zoom target so the camera glides instead of jerking.
+		const zoomSpringRef = useRef(createZoomSpringState());
+		const prevZoomTimeMsRef = useRef<number | null>(null);
 		const blurFilterRef = useRef<BlurFilter | null>(null);
 		const motionBlurFilterRef = useRef<MotionBlurFilter | null>(null);
 		const isDraggingFocusRef = useRef(false);
@@ -365,6 +370,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const cursorMotionBlurRef = useRef(cursorMotionBlur);
 		const cursorClickBounceRef = useRef(cursorClickBounce);
 		const cursorClipToBoundsRef = useRef(cursorClipToBounds);
+		const cursorThemeRef = useRef(cursorTheme);
 		const isPreviewingZoomRef = useRef(isPreviewingZoom);
 		const motionBlurStateRef = useRef<MotionBlurState>(createMotionBlurState());
 		const onTimeUpdateRef = useRef(onTimeUpdate);
@@ -382,7 +388,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const nativeCursorTextureIdRef = useRef<string | null>(null);
 		const nativeCursorImageRef = useRef<HTMLImageElement | null>(null);
 		const nativeCursorImageIdRef = useRef<string | null>(null);
-		const nativeCursorSmoothingStateRef = useRef(createNativeCursorSmoothingState());
 		const nativeCursorMotionBlurStateRef = useRef(createNativeCursorMotionBlurState());
 		const nativeCursorClipRef = useRef<HTMLDivElement | null>(null);
 		const borderRadiusRef = useRef<number>(0);
@@ -496,17 +501,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			[onDurationChange, syncResolvedDuration],
 		);
 
-		// IMPORTANT: must use clampFocusToScale(focus, getZoomScale(region)) here,
-		// NOT clampFocusToStage(focus, region.depth).
-		//
-		// region.depth is the preset slot (1×/2×/4×) and ignores customScale entirely.
-		// getZoomScale(region) returns customScale when set, falling back to the preset
-		// depth scale — so drag-to-reposition respects the actual zoom level the user
-		// configured, not the preset bucket it sits in.
-		//
-		// This was previously broken (invisible drag boundaries near canvas edges) and
-		// has been fixed twice. If you're refactoring this drag handler, keep this call
-		// as clampFocusForRegion(focus, region) — do not switch it back to region.depth.
+		// Clamp against getZoomScale(region), not region.depth: depth is just the preset
+		// slot (1x/2x/4x) and ignores customScale, which gives wrong drag bounds near the edges.
 		const clampFocusForRegion = useCallback((focus: ZoomFocus, region: ZoomRegion) => {
 			return clampFocusToScale(focus, getZoomScale(region));
 		}, []);
@@ -520,7 +516,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					return;
 				}
 
-				// Update stage size from overlay dimensions
 				const stageWidth = overlayEl.clientWidth;
 				const stageHeight = overlayEl.clientHeight;
 				if (stageWidth && stageHeight) {
@@ -844,7 +839,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 		useEffect(() => {
 			cursorRecordingDataRef.current = cursorRecordingData;
-			resetNativeCursorSmoothingState(nativeCursorSmoothingStateRef.current);
 			resetNativeCursorMotionBlurState(nativeCursorMotionBlurStateRef.current);
 		}, [cursorRecordingData]);
 
@@ -871,6 +865,24 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		useEffect(() => {
 			cursorClipToBoundsRef.current = cursorClipToBounds;
 		}, [cursorClipToBounds]);
+
+		useEffect(() => {
+			cursorThemeRef.current = cursorTheme;
+		}, [cursorTheme]);
+
+		useEffect(() => {
+			webcamReactiveZoomRef.current = webcamReactiveZoom;
+			webcamLayoutPresetRef.current = webcamLayoutPreset;
+			webcamPositionRef.current = webcamPosition;
+			// Clear any reactive transform when the effect is turned off or layout changes,
+			// so a stale shrink doesn't linger while the ticker isn't updating it.
+			if (
+				webcamWrapperRef.current &&
+				(!webcamReactiveZoom || webcamLayoutPreset !== "picture-in-picture")
+			) {
+				webcamWrapperRef.current.style.transform = "";
+			}
+		}, [webcamReactiveZoom, webcamLayoutPreset, webcamPosition]);
 
 		useEffect(() => {
 			isPreviewingZoomRef.current = isPreviewingZoom;
@@ -935,10 +947,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			};
 		}, [pixiReady, videoReady, layoutVideoContent]);
 
-		// Drop the PIXI canvas resolution to 1.0 while scrubbing (the user is
-		// navigating, not previewing) and restore native DPR on play/idle so the
-		// preview stays faithful. Mutating renderer.resolution per-frame would
-		// thrash texture uploads; we only do it on scrub-state transitions.
+		// Drop canvas resolution to 1.0 while scrubbing and restore native DPR on play/idle.
+		// Only on scrub-state transitions; mutating renderer.resolution per-frame thrashes
+		// texture uploads.
 		useEffect(() => {
 			if (!pixiReady) return;
 			const app = appRef.current;
@@ -1324,12 +1335,32 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					motionBlurAmount: motionBlurAmountRef.current,
 					transformOverride: transform,
 					motionBlurState: motionBlurStateRef.current,
-					frameTimeMs: performance.now(),
+					// Content time, not wall-clock, so motion-blur velocity matches export and stays
+					// correct under speed regions (frameRenderer passes the same content timeMs).
+					frameTimeMs: currentTimeRef.current,
 				});
 
 				state.x = appliedTransform.x;
 				state.y = appliedTransform.y;
 				state.appliedScale = appliedTransform.scale;
+
+				// Scale the PiP webcam inversely with the (eased) zoom, anchored to the docked
+				// corner (bottom-right by default) so it stays flush instead of drifting to center.
+				const webcamWrapper = webcamWrapperRef.current;
+				if (webcamWrapper) {
+					const reactive =
+						webcamReactiveZoomRef.current && webcamLayoutPresetRef.current === "picture-in-picture";
+					const factor = reactive ? reactiveWebcamScale(state.appliedScale) : 1;
+					if (factor < 1) {
+						const pos = webcamPositionRef.current;
+						const originX = (pos ? pos.cx >= 0.5 : true) ? "100%" : "0%";
+						const originY = (pos ? pos.cy >= 0.5 : true) ? "100%" : "0%";
+						webcamWrapper.style.transformOrigin = `${originX} ${originY}`;
+						webcamWrapper.style.transform = `scale(${factor})`;
+					} else {
+						webcamWrapper.style.transform = "";
+					}
+				}
 			};
 
 			let lastMotionBlurActive: boolean | null = null;
@@ -1350,53 +1381,55 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				let targetFocus = defaultFocus;
 				let targetProgress = 0;
 
-				// If a zoom is selected but video is not playing, show default unzoomed view
+				// If a zoom is selected but not playing, show the default unzoomed view.
 				const selectedId = selectedZoomIdRef.current;
 				const hasSelectedZoom = selectedId !== null;
 				const shouldShowUnzoomedView =
 					hasSelectedZoom && !isPlayingRef.current && !isPreviewingZoomRef.current;
 
 				if (region && strength > 0 && !shouldShowUnzoomedView) {
-					const zoomScale = blendedScale ?? ZOOM_DEPTH_SCALES[region.depth];
+					// Use getZoomScale (customScale-aware) to match export and the magnification
+					// findDominantRegion resolved focus at. Falling back to the depth preset would
+					// zoom/pan to a different level than export.
+					const zoomScale = blendedScale ?? getZoomScale(region);
 					const regionFocus = region.focus;
 
 					targetScaleFactor = zoomScale;
 					targetFocus = regionFocus;
 					targetProgress = strength;
 
-					// Apply adaptive smoothing for auto-follow mode
+					// Adaptive smoothing for auto-follow mode.
 					if (region.focusMode === "auto" && !transition) {
 						const raw = targetFocus;
 						const isZoomingIn =
 							targetProgress < 0.999 && targetProgress >= prevTargetProgressRef.current;
+						// Follow the cursor in content time (frame-rate independent) so the camera pans
+						// at the same speed in preview and export. Snap to target when not actively
+						// playing (paused/seek/scrub), matching the zoom spring's snap.
+						const focusAnimating =
+							isPlayingRef.current && !isSeekingRef.current && !isScrubbingRef.current;
+						const focusDtMs =
+							prevZoomTimeMsRef.current === null
+								? 0
+								: currentTimeRef.current - prevZoomTimeMsRef.current;
 						if (targetProgress >= 0.999) {
-							// Full zoom: adaptive smoothing — moves faster when far, decelerates when close
+							// Full zoom: adaptive smoothing, faster when far, decelerating when close.
 							const prev = smoothedAutoFocusRef.current ?? raw;
-							const factor = adaptiveSmoothFactor(
-								raw,
-								prev,
-								AUTO_FOLLOW_SMOOTHING_FACTOR,
-								AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
-								AUTO_FOLLOW_RAMP_DISTANCE,
-							);
-							const smoothed = smoothCursorFocus(raw, prev, factor);
+							const smoothed = focusAnimating
+								? advanceFollowFocus(prev, raw, focusDtMs, AUTO_FOLLOW_PARAMS)
+								: raw;
 							smoothedAutoFocusRef.current = smoothed;
 							targetFocus = smoothed;
 						} else if (isZoomingIn) {
-							// Zoom-in: track cursor directly so zoom always aims at current cursor
-							// position; keep ref in sync to avoid snap when full-zoom begins
+							// Zoom-in: track cursor directly so zoom always aims at the current position;
+							// keep ref in sync to avoid a snap when full-zoom begins.
 							smoothedAutoFocusRef.current = raw;
 						} else {
-							// Zoom-out: keep smoothing for continuity — avoids snap at zoom-out start
+							// Zoom-out: keep smoothing for continuity to avoid a snap at zoom-out start.
 							const prev = smoothedAutoFocusRef.current ?? raw;
-							const factor = adaptiveSmoothFactor(
-								raw,
-								prev,
-								AUTO_FOLLOW_SMOOTHING_FACTOR,
-								AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
-								AUTO_FOLLOW_RAMP_DISTANCE,
-							);
-							const smoothed = smoothCursorFocus(raw, prev, factor);
+							const smoothed = focusAnimating
+								? advanceFollowFocus(prev, raw, focusDtMs, AUTO_FOLLOW_PARAMS)
+								: raw;
 							smoothedAutoFocusRef.current = smoothed;
 							targetFocus = smoothed;
 						}
@@ -1405,7 +1438,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					}
 					prevTargetProgressRef.current = targetProgress;
 
-					// Handle connected zoom transitions (pan between adjacent zoom regions)
+					// Connected zoom transitions: pan between adjacent regions.
 					if (transition) {
 						const startTransform = computeZoomTransform({
 							stageSize: stageSizeRef.current,
@@ -1463,18 +1496,28 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					focusY: state.focusY,
 				});
 
-				const appliedScale =
-					Math.abs(projectedTransform.scale - prevScale) < ZOOM_SCALE_DEADZONE
-						? projectedTransform.scale
-						: projectedTransform.scale;
-				const appliedX =
-					Math.abs(projectedTransform.x - prevX) < ZOOM_TRANSLATION_DEADZONE_PX
-						? projectedTransform.x
-						: projectedTransform.x;
-				const appliedY =
-					Math.abs(projectedTransform.y - prevY) < ZOOM_TRANSLATION_DEADZONE_PX
-						? projectedTransform.y
-						: projectedTransform.y;
+				// Chase the eased target with a spring so the camera glides (no jerk at the steep
+				// start of the ease, no snap at close-region seams). Step by content time while
+				// playing; snap to the exact target when paused/seeking/scrubbing for crisp frames.
+				const nowMs = currentTimeRef.current;
+				const prevMs = prevZoomTimeMsRef.current;
+				const animating = isPlayingRef.current && !isSeekingRef.current && !isScrubbingRef.current;
+				const dtMs = prevMs === null ? 0 : nowMs - prevMs;
+				let appliedScale: number;
+				let appliedX: number;
+				let appliedY: number;
+				if (!animating || prevMs === null || dtMs <= 0 || dtMs > 80) {
+					resetZoomSpring(zoomSpringRef.current, projectedTransform);
+					appliedScale = projectedTransform.scale;
+					appliedX = projectedTransform.x;
+					appliedY = projectedTransform.y;
+				} else {
+					const sprung = stepZoomSpring(zoomSpringRef.current, projectedTransform, dtMs);
+					appliedScale = sprung.scale;
+					appliedX = sprung.x;
+					appliedY = sprung.y;
+				}
+				prevZoomTimeMsRef.current = nowMs;
 
 				const motionIntensity = Math.max(
 					Math.abs(appliedScale - prevScale),
@@ -1512,7 +1555,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					}
 				}
 
-				// Update cursor overlay
 				const cursorOverlay = cursorOverlayRef.current;
 				if (cursorOverlay) {
 					const timeMs = currentTimeRef.current; // already in ms
@@ -1539,7 +1581,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					if (nativeCursorClipRef.current) {
 						nativeCursorClipRef.current.style.clipPath = "";
 					}
-					resetNativeCursorSmoothingState(nativeCursorSmoothingStateRef.current);
 					resetNativeCursorMotionBlurState(nativeCursorMotionBlurStateRef.current);
 				};
 				if (nativeCursorImage) {
@@ -1550,13 +1591,15 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							timeMs,
 						);
 						if (frame) {
-							const displaySample = smoothNativeCursorSample({
-								forceSnap: !isPlayingRef.current || isSeekingRef.current,
-								sample: frame.sample,
-								smoothing: cursorSmoothingRef.current,
-								state: nativeCursorSmoothingStateRef.current,
-								timeMs,
-							});
+							// Position comes from the precomputed offline-smoothed path; the frame still
+							// supplies the cursor image, type, and click timing.
+							const smoothedPos = getSmoothedCursorPath(
+								cursorRecordingDataRef.current,
+								cursorSmoothingRef.current,
+							)?.sampleAt(timeMs);
+							const displaySample = smoothedPos
+								? { ...frame.sample, cx: smoothedPos.cx, cy: smoothedPos.cy }
+								: frame.sample;
 							const cameraContainer = cameraContainerRef.current;
 							const videoContainer = videoContainerRef.current;
 							const cropRegionValue = cropRegionRef.current ?? { x: 0, y: 0, width: 1, height: 1 };
@@ -1579,9 +1622,14 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 										})
 									: null;
 							if (projectedLocalPoint && projectedStagePoint) {
-								// Pass deviceScaleFactor=1 — asset.scaleFactor already encodes DPR.
+								// Pass deviceScaleFactor=1 since asset.scaleFactor already encodes DPR.
 								// Size is normalized below so preview matches export proportionally.
-								const renderAsset = resolveNativeCursorRenderAsset(frame.asset, 1, displaySample);
+								const renderAsset = resolveNativeCursorRenderAsset(
+									frame.asset,
+									1,
+									displaySample,
+									cursorThemeRef.current,
+								);
 								const bounceProgress = getNativeCursorClickBounceProgress(
 									cursorRecordingDataRef.current,
 									timeMs,
@@ -1610,9 +1658,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									nativeCursorImageIdRef.current = renderAsset.id;
 								}
 								nativeCursorImage.style.display = "block";
-								// Update clip-path on nativeCursorClipRef to the camera-aware video boundary.
-								// clip-path works correctly here because nativeCursorClipRef is outside preserve-3d.
-								// When cursorClipToBounds is off, allow the cursor to overflow the canvas.
+								// Clip to the camera-aware video boundary. Works here because nativeCursorClipRef
+								// sits outside preserve-3d. When cursorClipToBounds is off, let the cursor overflow.
 								if (nativeCursorClipRef.current) {
 									if (!cursorClipToBoundsRef.current) {
 										nativeCursorClipRef.current.style.clipPath = "none";
@@ -1635,7 +1682,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								nativeCursorImage.style.filter =
 									blurPx > 0 ? `blur(${blurPx.toFixed(2)}px)` : "none";
 								// translate3d is relative to nativeCursorClipRef (absolute inset-0 = stage origin).
-								// projectedStagePoint.x is the stage-space cursor position — no offset needed.
+								// projectedStagePoint.x is the stage-space cursor position, so no offset is needed.
 								nativeCursorImage.style.transform = `translate3d(${
 									projectedStagePoint.x - renderAsset.hotspotX * transformedScale
 								}px, ${projectedStagePoint.y - renderAsset.hotspotY * transformedScale}px, 0)`;
@@ -1773,8 +1820,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			if (!webcamSegments.length) return null;
 			const currentMs = currentTime * 1000;
 			return (
-				webcamSegments.find((s) => currentMs >= s.startMs && currentMs < s.startMs + s.durationMs) ??
-				null
+				webcamSegments.find(
+					(s) => currentMs >= s.startMs && currentMs < s.startMs + s.durationMs,
+				) ?? null
 			);
 		}, [webcamSegments, currentTime]);
 
@@ -1825,7 +1873,14 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				maskShape: focusShape ?? webcamLayout.maskShape,
 			};
 			// eslint-disable-next-line react-hooks/exhaustive-deps
-		}, [webcamDimensions, webcamLayout, activeFocusRegion, webcamMaskShape, webcamLayoutPreset, webcamFocusZoom]);
+		}, [
+			webcamDimensions,
+			webcamLayout,
+			activeFocusRegion,
+			webcamMaskShape,
+			webcamLayoutPreset,
+			webcamFocusZoom,
+		]);
 
 		useEffect(() => {
 			const webcamVideo = webcamVideoRef.current;
@@ -1937,7 +1992,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					),
 				}}
 			>
-				{/* Background layer - always render as DOM element with blur */}
+				{/* Background always renders as a DOM element so it can be blurred. */}
 				<div
 					className="absolute inset-0 bg-cover bg-center"
 					style={{
@@ -1976,6 +2031,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							const useClipPath = !!clipPath;
 							return (
 								<div
+									ref={webcamWrapperRef}
 									className="absolute"
 									style={{
 										left: activeRect?.x ?? 0,
@@ -2002,6 +2058,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 											boxShadow: useClipPath ? "none" : webcamCssBoxShadow,
 											backgroundColor: "#000",
 											transition: "border-radius 0.35s ease-in-out",
+											transform: webcamMirrored ? "scaleX(-1)" : undefined,
 										}}
 										onLoadedMetadata={() => {
 											const v = webcamVideoRef.current;
@@ -2019,7 +2076,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								</div>
 							);
 						})()}
-					{/* Only render overlay after PIXI and video are fully initialized */}
+					{/* Render the overlay only once PIXI and video are ready. */}
 					{pixiReady && videoReady && (
 						<div
 							ref={setOverlayRefs}
@@ -2085,18 +2142,15 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 											})()
 										: null;
 
-								// Handle click-through cycling: when clicking same annotation, cycle to next
+								// Re-clicking a selected annotation cycles through any overlapping ones.
 								const handleAnnotationClick = (clickedId: string) => {
 									if (!onSelectAnnotation) return;
 
-									// If clicking on already selected annotation and there are multiple overlapping
 									if (clickedId === selectedAnnotationId && filteredAnnotations.length > 1) {
-										// Find current index and cycle to next
 										const currentIndex = filteredAnnotations.findIndex((a) => a.id === clickedId);
 										const nextIndex = (currentIndex + 1) % filteredAnnotations.length;
 										onSelectAnnotation(filteredAnnotations[nextIndex].id);
 									} else {
-										// First click or clicking different annotation
 										onSelectAnnotation(clickedId);
 									}
 								};
@@ -2160,10 +2214,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						</div>
 					)}
 				</div>
-				{/* Clip the native cursor overlay to the exact video canvas boundary.
-				    Placed OUTSIDE composite3DRef (preserve-3d) so clip-path works
-				    correctly even during 3D zoom rotation regions.
-				    clip-path is set dynamically to the camera-aware video bounds. */}
+				{/* Native cursor clip. Lives outside composite3DRef (preserve-3d) so clip-path
+				    keeps working during 3D zoom rotations; bounds are set dynamically. */}
 				<div
 					ref={nativeCursorClipRef}
 					className="absolute inset-0"
