@@ -8,6 +8,8 @@ export type CursorCaptureMode = "editable-overlay" | "system";
 
 export interface RecordingSession extends ProjectMedia {
 	createdAt: number;
+	/** Adopted from a crash-orphaned file (no manifest at scan time); cleared after repair. */
+	recovered?: boolean;
 }
 
 export interface RecordedVideoAssetInput {
@@ -81,5 +83,6 @@ export function normalizeRecordingSession(candidate: unknown): RecordingSession 
 			typeof raw.createdAt === "number" && Number.isFinite(raw.createdAt)
 				? raw.createdAt
 				: Date.now(),
+		...(raw.recovered === true ? { recovered: true } : {}),
 	};
 }
