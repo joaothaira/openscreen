@@ -28,6 +28,7 @@ import { type Locale } from "@/i18n/config";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
 import {
 	captionSegmentsToAnnotationRegions,
+	captionSegmentsToSubtitleItems,
 	extractMono16kFromVideoUrl,
 	MAX_CAPTION_AUDIO_SEC,
 	reconcileAutoCaptionTimelineGaps,
@@ -305,6 +306,8 @@ export default function VideoEditor() {
 	const [selectedSpeedId, setSelectedSpeedId] = useState<string | null>(null);
 	const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
 	const [selectedBlurId, setSelectedBlurId] = useState<string | null>(null);
+	const [selectedSubtitleId, setSelectedSubtitleId] = useState<string | null>(null);
+	const [sidebarTab, setSidebarTab] = useState("settings");
 	const [selectedWebcamFocusId, setSelectedWebcamFocusId] = useState<string | null>(null);
 	const [selectedWebcamSegmentId, setSelectedWebcamSegmentId] = useState<string | null>(null);
 	const [isExporting, setIsExporting] = useState(false);
@@ -393,6 +396,7 @@ export default function VideoEditor() {
 	const showCursorSettings = hasEditableCursorRecording;
 	const { locale, setLocale, t: rawT } = useI18n();
 	const [captionLanguage, setCaptionLanguage] = useState(() => captionLanguageForLocale(locale));
+	const [captionOutput, setCaptionOutput] = useState<"subtitles" | "annotations">("subtitles");
 	const t = useScopedT("editor");
 	const ts = useScopedT("settings");
 	const availableLocales = getAvailableLocales();
@@ -1149,6 +1153,7 @@ export default function VideoEditor() {
 			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
+			setSelectedSubtitleId(null);
 		}
 	}, []);
 
@@ -1159,6 +1164,7 @@ export default function VideoEditor() {
 			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
+			setSelectedSubtitleId(null);
 		}
 	}, []);
 
@@ -1169,6 +1175,7 @@ export default function VideoEditor() {
 			setSelectedTrimId(null);
 			setSelectedSpeedId(null);
 			setSelectedBlurId(null);
+			setSelectedSubtitleId(null);
 		}
 	}, []);
 
@@ -1179,6 +1186,20 @@ export default function VideoEditor() {
 			setSelectedTrimId(null);
 			setSelectedAnnotationId(null);
 			setSelectedSpeedId(null);
+			setSelectedSubtitleId(null);
+		}
+	}, []);
+
+	const handleSelectSubtitle = useCallback((id: string | null) => {
+		setSelectedSubtitleId(id);
+		if (id) {
+			setSelectedZoomId(null);
+			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
+			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
+			// Jump the sidebar to this subtitle's editor (Enterprise tab).
+			setSidebarTab("enterprise");
 		}
 	}, []);
 
@@ -1747,6 +1768,29 @@ export default function VideoEditor() {
 		[selectedAnnotationId, selectedBlurId, pushState],
 	);
 
+	const handleSubtitleSpanChange = useCallback(
+		(id: string, span: Span) => {
+			pushState((prev) => ({
+				subtitleRegions: prev.subtitleRegions.map((s) =>
+					s.id === id ? { ...s, startMs: Math.round(span.start), endMs: Math.round(span.end) } : s,
+				),
+			}));
+		},
+		[pushState],
+	);
+
+	const handleSubtitleDelete = useCallback(
+		(id: string) => {
+			pushState((prev) => ({
+				subtitleRegions: prev.subtitleRegions.filter((s) => s.id !== id),
+			}));
+			if (selectedSubtitleId === id) {
+				setSelectedSubtitleId(null);
+			}
+		},
+		[selectedSubtitleId, pushState],
+	);
+
 	const handleAnnotationContentChange = useCallback(
 		(id: string, content: string) => {
 			pushState((prev) => ({
@@ -2092,6 +2136,12 @@ export default function VideoEditor() {
 			setSelectedWebcamSegmentId(null);
 		}
 	}, [selectedWebcamSegmentId, webcamSegments]);
+
+	useEffect(() => {
+		if (selectedSubtitleId && !subtitleRegions.some((s) => s.id === selectedSubtitleId)) {
+			setSelectedSubtitleId(null);
+		}
+	}, [selectedSubtitleId, subtitleRegions]);
 
 	const handleGenerateSubtitles = useCallback(async () => {
 		if (!videoSourcePath) {
@@ -2688,48 +2738,74 @@ export default function VideoEditor() {
 							}))
 						: segmentsRaw;
 
-				let { regions, nextNumericId, nextZIndex } = captionSegmentsToAnnotationRegions(
-					segments,
-					nextAnnotationIdRef.current,
-					nextAnnotationZIndexRef.current,
-					{
+				let createdCount = 0;
+				if (captionOutput === "subtitles") {
+					let items = captionSegmentsToSubtitleItems(segments, {
 						minWordsPerCaption: minW,
 						maxWordsPerCaption: maxW,
 						timestampGranularity: granularity,
-					},
-				);
-
-				if (regions.length === 0 && segments.length > 0) {
-					({ regions, nextNumericId, nextZIndex } = captionSegmentsToAnnotationRegions(
+					});
+					if (items.length === 0 && segments.length > 0) {
+						items = captionSegmentsToSubtitleItems(segments, {
+							minWordsPerCaption: 1,
+							maxWordsPerCaption: Number.MAX_SAFE_INTEGER,
+							timestampGranularity: granularity,
+						});
+					}
+					if (items.length === 0) {
+						toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
+						toast.info(t("autoCaptions.noneHeard"));
+						return;
+					}
+					// A generation describes the whole video: replace, like the sidebar
+					// subtitle generator does, instead of stacking duplicate lines.
+					pushState({ subtitleRegions: items, showSubtitles: true });
+					createdCount = items.length;
+				} else {
+					let { regions, nextNumericId, nextZIndex } = captionSegmentsToAnnotationRegions(
 						segments,
 						nextAnnotationIdRef.current,
 						nextAnnotationZIndexRef.current,
 						{
-							minWordsPerCaption: 1,
-							maxWordsPerCaption: Number.MAX_SAFE_INTEGER,
+							minWordsPerCaption: minW,
+							maxWordsPerCaption: maxW,
 							timestampGranularity: granularity,
 						},
-					));
-				}
+					);
 
-				if (regions.length === 0) {
-					toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
-					toast.info(t("autoCaptions.noneHeard"));
-					return;
-				}
+					if (regions.length === 0 && segments.length > 0) {
+						({ regions, nextNumericId, nextZIndex } = captionSegmentsToAnnotationRegions(
+							segments,
+							nextAnnotationIdRef.current,
+							nextAnnotationZIndexRef.current,
+							{
+								minWordsPerCaption: 1,
+								maxWordsPerCaption: Number.MAX_SAFE_INTEGER,
+								timestampGranularity: granularity,
+							},
+						));
+					}
 
-				pushState((prev) => ({ annotationRegions: [...prev.annotationRegions, ...regions] }));
-				nextAnnotationIdRef.current = nextNumericId;
-				nextAnnotationZIndexRef.current = nextZIndex;
+					if (regions.length === 0) {
+						toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
+						toast.info(t("autoCaptions.noneHeard"));
+						return;
+					}
+
+					pushState((prev) => ({ annotationRegions: [...prev.annotationRegions, ...regions] }));
+					nextAnnotationIdRef.current = nextNumericId;
+					nextAnnotationZIndexRef.current = nextZIndex;
+					createdCount = regions.length;
+				}
 
 				toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
 				const minutesTrunc = String(Math.round(MAX_CAPTION_AUDIO_SEC / 60));
 				if (truncated) {
-					toast.success(t("autoCaptions.done", { count: String(regions.length) }), {
+					toast.success(t("autoCaptions.done", { count: String(createdCount) }), {
 						description: t("autoCaptions.truncated", { minutes: minutesTrunc }),
 					});
 				} else {
-					toast.success(t("autoCaptions.done", { count: String(regions.length) }));
+					toast.success(t("autoCaptions.done", { count: String(createdCount) }));
 				}
 			} catch (e) {
 				console.error(e);
@@ -2741,7 +2817,7 @@ export default function VideoEditor() {
 				setIsAutoCaptioning(false);
 			}
 		},
-		[videoPath, trimRegions, pushState, t, captionLanguage],
+		[videoPath, trimRegions, pushState, t, captionLanguage, captionOutput],
 	);
 
 	const handleSaveDiagnostic = useCallback(async () => {
@@ -2821,6 +2897,21 @@ export default function VideoEditor() {
 						<DialogDescription>{t("autoCaptions.dialogDescription")}</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-4 py-2">
+						<div className="grid gap-2">
+							<Label htmlFor="caption-output">{t("autoCaptions.output")}</Label>
+							<Select
+								value={captionOutput}
+								onValueChange={(v) => setCaptionOutput(v as "subtitles" | "annotations")}
+							>
+								<SelectTrigger id="caption-output" className="h-9">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="subtitles">{t("autoCaptions.outputSubtitles")}</SelectItem>
+									<SelectItem value="annotations">{t("autoCaptions.outputAnnotations")}</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
 						<div className="grid gap-2">
 							<Label htmlFor="caption-language">{t("autoCaptions.language")}</Label>
 							<Select value={captionLanguage} onValueChange={setCaptionLanguage}>
@@ -3097,7 +3188,11 @@ export default function VideoEditor() {
 								</div>
 
 								<div className="editor-settings-rail min-w-0 h-full">
-									<Tabs defaultValue="settings" className="flex h-full flex-col">
+									<Tabs
+										value={sidebarTab}
+										onValueChange={setSidebarTab}
+										className="flex h-full flex-col"
+									>
 										<TabsList className="mx-3 mt-2 grid grid-cols-2">
 											<TabsTrigger value="settings">Settings</TabsTrigger>
 											<TabsTrigger value="enterprise">Enterprise</TabsTrigger>
@@ -3417,6 +3512,7 @@ export default function VideoEditor() {
 												subtitleStyle={subtitleStyle}
 												onSubtitleStyleChange={handleSubtitleStyleChange}
 												onSubtitleTextChange={handleSubtitleTextChange}
+												selectedSubtitleId={selectedSubtitleId}
 												onGenerateSubtitles={handleGenerateSubtitles}
 												isGeneratingSubtitles={isGeneratingSubtitles}
 												onClearSubtitles={handleClearSubtitles}
@@ -3478,6 +3574,11 @@ export default function VideoEditor() {
 									onAnnotationDelete={handleAnnotationDelete}
 									selectedAnnotationId={selectedAnnotationId}
 									onSelectAnnotation={handleSelectAnnotation}
+									subtitleRegions={subtitleRegions}
+									onSubtitleSpanChange={handleSubtitleSpanChange}
+									onSubtitleDelete={handleSubtitleDelete}
+									selectedSubtitleId={selectedSubtitleId}
+									onSelectSubtitle={handleSelectSubtitle}
 									blurRegions={blurRegions}
 									onBlurAdded={handleBlurAdded}
 									onBlurSpanChange={handleAnnotationSpanChange}

@@ -62,7 +62,10 @@
 		"noAudio": "Cette vidéo ne contient pas d'audio exploitable pour la transcription.",
 		"failed": "Impossible de générer les sous-titres.",
 		"truncated": "Seules les {{minutes}} premières minutes ont été transcrites.",
-		"language": "Spoken language"
+		"language": "Spoken language",
+		"output": "Caption style",
+		"outputAnnotations": "Text annotations",
+		"outputSubtitles": "Styled subtitles (templates)"
 	},
 	"emptyState": {
 		"title": "Aucun projet ouvert",

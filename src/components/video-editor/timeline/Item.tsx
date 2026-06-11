@@ -17,7 +17,15 @@ interface ItemProps {
 	zoomCustomScale?: number;
 	speedValue?: number;
 	isAutoFocus?: boolean;
-	variant?: "zoom" | "trim" | "annotation" | "speed" | "blur" | "webcam-focus" | "webcam-segment";
+	variant?:
+		| "zoom"
+		| "trim"
+		| "annotation"
+		| "speed"
+		| "blur"
+		| "webcam-focus"
+		| "webcam-segment"
+		| "subtitle";
 }
 
 // Map zoom depth to multiplier labels
@@ -65,6 +73,7 @@ export default function Item({
 	const isSpeed = variant === "speed";
 	const isWebcamFocus = variant === "webcam-focus";
 	const isWebcamSegment = variant === "webcam-segment";
+	const isSubtitle = variant === "subtitle";
 
 	const glassClass = isZoom
 		? glassStyles.glassGreen
@@ -76,7 +85,9 @@ export default function Item({
 					? glassStyles.glassBlue
 					: isWebcamSegment
 						? glassStyles.glassPurple
-						: glassStyles.glassYellow;
+						: isSubtitle
+							? glassStyles.glassTeal
+							: glassStyles.glassYellow;
 
 	const endCapColor = isZoom
 		? "#21916A"
@@ -88,7 +99,9 @@ export default function Item({
 					? "#4f46e5"
 					: isWebcamSegment
 						? "#9333ea"
-						: "#B4A046";
+						: isSubtitle
+							? "#0d9488"
+							: "#B4A046";
 
 	const timeLabel = useMemo(
 		() => `${formatMs(span.start)} – ${formatMs(span.end)}`,

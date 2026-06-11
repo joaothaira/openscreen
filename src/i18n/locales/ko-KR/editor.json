@@ -62,7 +62,10 @@
 		"noAudio": "이 동영상에는 전사에 사용할 수 있는 음성이 없습니다.",
 		"failed": "자막을 생성할 수 없습니다.",
 		"truncated": "처음 {{minutes}}분만 전사되었습니다.",
-		"language": "Spoken language"
+		"language": "Spoken language",
+		"output": "Caption style",
+		"outputAnnotations": "Text annotations",
+		"outputSubtitles": "Styled subtitles (templates)"
 	},
 	"emptyState": {
 		"title": "열린 프로젝트 없음",

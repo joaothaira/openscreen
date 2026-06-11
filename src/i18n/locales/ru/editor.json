@@ -62,7 +62,10 @@
 		"noAudio": "В этом видео нет звука, пригодного для расшифровки.",
 		"failed": "Не удалось создать субтитры.",
 		"truncated": "Расшифрованы только первые {{minutes}} мин.",
-		"language": "Spoken language"
+		"language": "Spoken language",
+		"output": "Caption style",
+		"outputAnnotations": "Text annotations",
+		"outputSubtitles": "Styled subtitles (templates)"
 	},
 	"emptyState": {
 		"title": "Нет открытых проектов",

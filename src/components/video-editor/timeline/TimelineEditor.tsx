@@ -35,6 +35,7 @@ import { TutorialHelp } from "../TutorialHelp";
 import type {
 	AnnotationRegion,
 	SpeedRegion,
+	SubtitleItem,
 	TrimRegion,
 	WebcamFocusRegion,
 	WebcamSegment,
@@ -52,6 +53,7 @@ const TRIM_ROW_ID = "row-trim";
 const ANNOTATION_ROW_ID = "row-annotation";
 const BLUR_ROW_ID = "row-blur";
 const SPEED_ROW_ID = "row-speed";
+const SUBTITLE_ROW_ID = "row-subtitle";
 const WEBCAM_FOCUS_ROW_ID = "row-webcam-focus";
 const WEBCAM_SEGMENT_ROW_ID = "row-webcam-segment";
 const FALLBACK_RANGE_MS = 1000;
@@ -104,6 +106,11 @@ interface TimelineEditorProps {
 	onWebcamFocusDelete?: (id: string) => void;
 	selectedWebcamFocusId?: string | null;
 	onSelectWebcamFocus?: (id: string | null) => void;
+	subtitleRegions?: SubtitleItem[];
+	onSubtitleSpanChange?: (id: string, span: Span) => void;
+	onSubtitleDelete?: (id: string) => void;
+	selectedSubtitleId?: string | null;
+	onSelectSubtitle?: (id: string | null) => void;
 	webcamSegments?: WebcamSegment[];
 	onWebcamSegmentSpanChange?: (id: string, span: Span) => void;
 	onWebcamSegmentDelete?: (id: string) => void;
@@ -136,7 +143,15 @@ interface TimelineRenderItem {
 	zoomCustomScale?: number;
 	speedValue?: number;
 	isAutoFocus?: boolean;
-	variant: "zoom" | "trim" | "annotation" | "speed" | "blur" | "webcam-focus" | "webcam-segment";
+	variant:
+		| "zoom"
+		| "trim"
+		| "annotation"
+		| "speed"
+		| "blur"
+		| "webcam-focus"
+		| "webcam-segment"
+		| "subtitle";
 }
 
 const SCALE_CANDIDATES = [
@@ -589,6 +604,7 @@ function Timeline({
 	onSelectSpeed,
 	onSelectWebcamFocus,
 	onSelectWebcamSegment,
+	onSelectSubtitle,
 	selectedZoomId,
 	selectedTrimId,
 	selectedAnnotationId,
@@ -596,6 +612,7 @@ function Timeline({
 	selectedSpeedId,
 	selectedWebcamFocusId,
 	selectedWebcamSegmentId,
+	selectedSubtitleId,
 	keyframes = [],
 	videoUrl,
 	showTrimWaveform = false,
@@ -612,6 +629,7 @@ function Timeline({
 	onSelectSpeed?: (id: string | null) => void;
 	onSelectWebcamFocus?: (id: string | null) => void;
 	onSelectWebcamSegment?: (id: string | null) => void;
+	onSelectSubtitle?: (id: string | null) => void;
 	selectedZoomId: string | null;
 	selectedTrimId?: string | null;
 	selectedAnnotationId?: string | null;
@@ -619,6 +637,7 @@ function Timeline({
 	selectedSpeedId?: string | null;
 	selectedWebcamFocusId?: string | null;
 	selectedWebcamSegmentId?: string | null;
+	selectedSubtitleId?: string | null;
 	keyframes?: { id: string; time: number }[];
 	videoUrl?: string;
 	showTrimWaveform?: boolean;
@@ -783,6 +802,7 @@ function Timeline({
 	const speedItems = items.filter((item) => item.rowId === SPEED_ROW_ID);
 	const webcamFocusItems = items.filter((item) => item.rowId === WEBCAM_FOCUS_ROW_ID);
 	const webcamSegmentItems = items.filter((item) => item.rowId === WEBCAM_SEGMENT_ROW_ID);
+	const subtitleItems = items.filter((item) => item.rowId === SUBTITLE_ROW_ID);
 
 	return (
 		<div
@@ -877,6 +897,24 @@ function Timeline({
 					</Item>
 				))}
 			</Row>
+
+			{subtitleItems.length > 0 && (
+				<Row id={SUBTITLE_ROW_ID} isEmpty={false}>
+					{subtitleItems.map((item) => (
+						<Item
+							id={item.id}
+							key={item.id}
+							rowId={item.rowId}
+							span={item.span}
+							isSelected={item.id === selectedSubtitleId}
+							onSelect={() => onSelectSubtitle?.(item.id)}
+							variant="subtitle"
+						>
+							{item.label}
+						</Item>
+					))}
+				</Row>
+			)}
 
 			{BLUR_REGIONS_ENABLED && (
 				<Row id={BLUR_ROW_ID} isEmpty={blurItems.length === 0} hint={t("hints.pressBlur")}>
@@ -1001,6 +1039,11 @@ export default function TimelineEditor({
 	onWebcamFocusDelete,
 	selectedWebcamFocusId,
 	onSelectWebcamFocus,
+	subtitleRegions = [],
+	onSubtitleSpanChange,
+	onSubtitleDelete,
+	selectedSubtitleId,
+	onSelectSubtitle,
 	webcamSegments = [],
 	onWebcamSegmentSpanChange,
 	onWebcamSegmentDelete,
@@ -1084,6 +1127,12 @@ export default function TimelineEditor({
 		onAnnotationDelete(selectedAnnotationId);
 		onSelectAnnotation(null);
 	}, [selectedAnnotationId, onAnnotationDelete, onSelectAnnotation]);
+
+	const deleteSelectedSubtitle = useCallback(() => {
+		if (!selectedSubtitleId || !onSubtitleDelete || !onSelectSubtitle) return;
+		onSubtitleDelete(selectedSubtitleId);
+		onSelectSubtitle(null);
+	}, [selectedSubtitleId, onSubtitleDelete, onSelectSubtitle]);
 
 	const deleteSelectedBlur = useCallback(() => {
 		if (!selectedBlurId || !onBlurDelete || !onSelectBlur) return;
@@ -1489,6 +1538,8 @@ export default function TimelineEditor({
 					deleteSelectedTrim();
 				} else if (selectedAnnotationId) {
 					deleteSelectedAnnotation();
+				} else if (selectedSubtitleId) {
+					deleteSelectedSubtitle();
 				} else if (selectedBlurId) {
 					deleteSelectedBlur();
 				} else if (selectedSpeedId) {
@@ -1513,11 +1564,13 @@ export default function TimelineEditor({
 		deleteSelectedZoom,
 		deleteSelectedTrim,
 		deleteSelectedAnnotation,
+		deleteSelectedSubtitle,
 		deleteSelectedBlur,
 		deleteSelectedSpeed,
 		deleteSelectedWebcamFocus,
 		deleteSelectedWebcamSegment,
 		selectedKeyframeId,
+		selectedSubtitleId,
 		selectedZoomId,
 		selectedTrimId,
 		selectedAnnotationId,
@@ -1609,6 +1662,17 @@ export default function TimelineEditor({
 			variant: "webcam-focus",
 		}));
 
+		const subtitles: TimelineRenderItem[] = subtitleRegions.map((region) => {
+			const preview = region.text.trim() || t("labels.emptyText");
+			return {
+				id: region.id,
+				rowId: SUBTITLE_ROW_ID,
+				span: { start: region.startMs, end: region.endMs },
+				label: preview.length > 20 ? `${preview.substring(0, 20)}...` : preview,
+				variant: "subtitle" as const,
+			};
+		});
+
 		const webcamSegmentItems: TimelineRenderItem[] = webcamSegments.map((segment, index) => ({
 			id: segment.id,
 			rowId: WEBCAM_SEGMENT_ROW_ID,
@@ -1621,6 +1685,7 @@ export default function TimelineEditor({
 			...zooms,
 			...trims,
 			...annotations,
+			...subtitles,
 			...blurs,
 			...speeds,
 			...webcamFocuses,
@@ -1630,6 +1695,7 @@ export default function TimelineEditor({
 		zoomRegions,
 		trimRegions,
 		annotationRegions,
+		subtitleRegions,
 		blurRegions,
 		speedRegions,
 		webcamFocusRegions,
@@ -1664,8 +1730,9 @@ export default function TimelineEditor({
 			end: r.endMs,
 		}));
 		const blurs = blurRegions.map((r) => ({ id: r.id, start: r.startMs, end: r.endMs }));
-		return [...annotations, ...blurs];
-	}, [annotationRegions, blurRegions]);
+		const subtitles = subtitleRegions.map((r) => ({ id: r.id, start: r.startMs, end: r.endMs }));
+		return [...annotations, ...blurs, ...subtitles];
+	}, [annotationRegions, blurRegions, subtitleRegions]);
 
 	const keyframeTimesMs = useMemo(() => keyframes.map((kf) => kf.time), [keyframes]);
 
@@ -1683,6 +1750,8 @@ export default function TimelineEditor({
 				onWebcamSegmentSpanChange?.(id, span);
 			} else if (annotationRegions.some((r) => r.id === id)) {
 				onAnnotationSpanChange?.(id, span);
+			} else if (subtitleRegions.some((r) => r.id === id)) {
+				onSubtitleSpanChange?.(id, span);
 			} else if (blurRegions.some((r) => r.id === id)) {
 				onBlurSpanChange?.(id, span);
 			}
@@ -1694,6 +1763,7 @@ export default function TimelineEditor({
 			webcamFocusRegions,
 			webcamSegments,
 			annotationRegions,
+			subtitleRegions,
 			blurRegions,
 			onZoomSpanChange,
 			onTrimSpanChange,
@@ -1701,6 +1771,7 @@ export default function TimelineEditor({
 			onWebcamFocusSpanChange,
 			onWebcamSegmentSpanChange,
 			onAnnotationSpanChange,
+			onSubtitleSpanChange,
 			onBlurSpanChange,
 		],
 	);
@@ -1920,6 +1991,7 @@ export default function TimelineEditor({
 						onSelectSpeed={onSelectSpeed}
 						onSelectWebcamFocus={onSelectWebcamFocus}
 						onSelectWebcamSegment={onSelectWebcamSegment}
+						onSelectSubtitle={onSelectSubtitle}
 						selectedZoomId={selectedZoomId}
 						selectedTrimId={selectedTrimId}
 						selectedAnnotationId={selectedAnnotationId}
@@ -1927,6 +1999,7 @@ export default function TimelineEditor({
 						selectedSpeedId={selectedSpeedId}
 						selectedWebcamFocusId={selectedWebcamFocusId}
 						selectedWebcamSegmentId={selectedWebcamSegmentId}
+						selectedSubtitleId={selectedSubtitleId}
 						keyframes={keyframes}
 						videoUrl={videoUrl}
 						showTrimWaveform={showTrimWaveform}

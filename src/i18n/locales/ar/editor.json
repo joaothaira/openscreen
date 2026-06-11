@@ -62,7 +62,10 @@
 		"noAudio": "لا يحتوي هذا الفيديو على صوت صالح للنسخ.",
 		"failed": "تعذّر توليد التسميات.",
 		"truncated": "تم نسخ الدقائق الأولى فقط: {{minutes}} دقيقة.",
-		"language": "Spoken language"
+		"language": "Spoken language",
+		"output": "Caption style",
+		"outputAnnotations": "Text annotations",
+		"outputSubtitles": "Styled subtitles (templates)"
 	},
 	"emptyState": {
 		"title": "لا يوجد مشروع مفتوح",
