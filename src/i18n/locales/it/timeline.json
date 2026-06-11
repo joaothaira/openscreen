@@ -5,14 +5,17 @@
 		"addTrim": "Aggiungi taglio (T)",
 		"addAnnotation": "Aggiungi annotazione (A)",
 		"addBlur": "Aggiungi sfocatura (B)",
-		"addSpeed": "Aggiungi velocità (S)"
+		"addSpeed": "Aggiungi velocità (S)",
+		"addWebcamFocus": "Add Webcam Focus"
 	},
 	"hints": {
 		"pressZoom": "Premi Z per aggiungere zoom",
 		"pressTrim": "Premi T per aggiungere taglio",
 		"pressAnnotation": "Premi A per aggiungere annotazione",
 		"pressBlur": "Premi B per aggiungere regione sfocatura",
-		"pressSpeed": "Premi S per aggiungere velocità"
+		"pressSpeed": "Premi S per aggiungere velocità",
+		"pressWebcamFocus": "Click to add webcam focus",
+		"webcamSegment": "Webcam clip"
 	},
 	"labels": {
 		"pan": "Panoramica",
@@ -25,7 +28,9 @@
 		"annotationItem": "Annotazione",
 		"blurItem": "Sfocatura {{index}}",
 		"imageItem": "Immagine",
-		"emptyText": "Testo vuoto"
+		"emptyText": "Testo vuoto",
+		"webcamFocusItem": "Cam Focus {{index}}",
+		"webcamSegmentItem": "Clip {{index}}"
 	},
 	"emptyState": {
 		"noVideo": "Nessun video caricato",
@@ -46,7 +51,9 @@
 		"cannotPlaceTrim": "Impossibile posizionare il taglio qui",
 		"trimExistsAtLocation": "Il taglio esiste già in questa posizione o non c'è spazio sufficiente.",
 		"cannotPlaceSpeed": "Impossibile posizionare la velocità qui",
-		"speedExistsAtLocation": "La regione velocità esiste già in questa posizione o non c'è spazio sufficiente."
+		"speedExistsAtLocation": "La regione velocità esiste già in questa posizione o non c'è spazio sufficiente.",
+		"cannotPlaceWebcamFocus": "Cannot place webcam focus here",
+		"webcamFocusExistsAtLocation": "Webcam focus already exists at this location or not enough space available."
 	},
 	"success": {
 		"addedZoomSuggestions": "Aggiunto {{count}} suggerimento zoom basato sul cursore",

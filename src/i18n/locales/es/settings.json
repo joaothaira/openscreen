@@ -43,9 +43,26 @@
 		"pictureInPicture": "Imagen en imagen",
 		"verticalStack": "Apilado vertical",
 		"dualFrame": "Marco dual",
+		"noWebcam": "Sin cámara",
 		"webcamShape": "Forma de cámara",
 		"webcamSize": "Tamaño de cámara",
-		"noWebcam": "Sin cámara"
+		"webcamSizeSmall": "S",
+		"webcamSizeMedium": "M",
+		"webcamSizeLarge": "L",
+		"focusShape": "Forma en enfoque",
+		"deleteFocusRegion": "Eliminar región de enfoque",
+		"addCameraVideo": "Añadir vídeo de cámara",
+		"removeCameraVideo": "Eliminar vídeo de cámara",
+		"changeCameraVideo": "Cambiar",
+		"position": "Posición",
+		"corner_top_left": "Arr. izq.",
+		"corner_top_right": "Arr. der.",
+		"corner_center_left": "Centro izq.",
+		"corner_center_right": "Centro der.",
+		"corner_bottom_left": "Abajo izq.",
+		"corner_bottom_right": "Abajo der.",
+		"stack_top": "Cámara arriba",
+		"stack_bottom": "Cámara abajo"
 	},
 	"effects": {
 		"title": "Efectos de video",
@@ -163,7 +180,9 @@
 		"invalidImageType": "Tipo de archivo no válido",
 		"imageFormatsOnly": "Por favor sube un archivo de imagen JPG, PNG, GIF o WebP.",
 		"imageUploadSuccess": "¡Imagen subida exitosamente!",
-		"failedImageUpload": "Error al subir la imagen"
+		"failedImageUpload": "Error al subir la imagen",
+		"textAnimation": "Text Animation",
+		"selectAnimation": "Select animation"
 	},
 	"fontStyles": {
 		"classic": "Clásico",
@@ -173,7 +192,8 @@
 		"deco": "Deco",
 		"simple": "Simple",
 		"modern": "Moderno",
-		"clean": "Limpio"
+		"clean": "Limpio",
+		"stencil": "Stencil"
 	},
 	"textAnimation": {
 		"title": "Animación de texto",
@@ -219,5 +239,9 @@
 	"timeline": {
 		"title": "Línea de tiempo",
 		"waveform": "Mostrar forma de onda en pista de recorte"
+	},
+	"links": {
+		"reportBug": "Report a Bug",
+		"starOnGithub": "Star on GitHub"
 	}
 }

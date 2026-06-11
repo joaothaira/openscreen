@@ -45,7 +45,24 @@
 		"dualFrame": "Двойной кадр",
 		"webcamShape": "Форма камеры",
 		"webcamSize": "Размер веб-камеры",
-		"noWebcam": "Без веб-камеры"
+		"noWebcam": "Без веб-камеры",
+		"webcamSizeSmall": "S",
+		"webcamSizeMedium": "M",
+		"webcamSizeLarge": "L",
+		"focusShape": "Focus Shape",
+		"deleteFocusRegion": "Delete Focus Region",
+		"addCameraVideo": "Add Camera Video",
+		"removeCameraVideo": "Remove Camera Video",
+		"changeCameraVideo": "Change/Upload Camera Video",
+		"position": "Position",
+		"corner_top_left": "Top Left",
+		"corner_top_right": "Top Right",
+		"corner_center_left": "Center Left",
+		"corner_center_right": "Center Right",
+		"corner_bottom_left": "Bottom Left",
+		"corner_bottom_right": "Bottom Right",
+		"stack_top": "Webcam Top",
+		"stack_bottom": "Webcam Bottom"
 	},
 	"effects": {
 		"title": "Видеоэффекты",
@@ -163,7 +180,9 @@
 		"invalidImageType": "Неверный тип файла",
 		"imageFormatsOnly": "Пожалуйста, загрузите изображение JPG, PNG, GIF или WebP.",
 		"imageUploadSuccess": "Изображение успешно загружено!",
-		"failedImageUpload": "Не удалось загрузить изображение"
+		"failedImageUpload": "Не удалось загрузить изображение",
+		"textAnimation": "Text Animation",
+		"selectAnimation": "Select animation"
 	},
 	"fontStyles": {
 		"classic": "Классический",
@@ -173,7 +192,8 @@
 		"deco": "Декоративный",
 		"simple": "Простой",
 		"modern": "Современный",
-		"clean": "Чистый"
+		"clean": "Чистый",
+		"stencil": "Stencil"
 	},
 	"textAnimation": {
 		"title": "Анимация текста",
@@ -219,5 +239,9 @@
 	"timeline": {
 		"title": "Шкала времени",
 		"waveform": "Показывать форму волны на треке обрезки"
+	},
+	"links": {
+		"reportBug": "Report a Bug",
+		"starOnGithub": "Star on GitHub"
 	}
 }

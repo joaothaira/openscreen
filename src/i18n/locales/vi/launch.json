@@ -9,7 +9,8 @@
 		"openVideoFile": "Mở tệp video",
 		"openProject": "Mở dự án",
 		"useVerticalTray": "Dùng khay dọc",
-		"useHorizontalTray": "Dùng khay ngang"
+		"useHorizontalTray": "Dùng khay ngang",
+		"openStudio": "Open Studio"
 	},
 	"audio": {
 		"enableSystemAudio": "Bật âm thanh hệ thống",
@@ -30,7 +31,10 @@
 		"loading": "Đang tải nguồn...",
 		"screens": "Màn hình ({{count}})",
 		"windows": "Cửa sổ ({{count}})",
-		"defaultSourceName": "Màn hình"
+		"defaultSourceName": "Màn hình",
+		"emptyTitle": "No screens or windows found",
+		"emptyDescription": "If you just granted screen recording permission, reload this picker. On macOS you may need to reopen OpenScreen.",
+		"loadFailedDescription": "OpenScreen could not load capture sources. Reload this picker and try again."
 	},
 	"recording": {
 		"selectSource": "Vui lòng chọn một nguồn để ghi"

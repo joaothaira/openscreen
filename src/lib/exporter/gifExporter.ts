@@ -3,17 +3,18 @@ import type {
 	AnnotationRegion,
 	CropRegion,
 	SpeedRegion,
+	SubtitleItem,
+	SubtitleStyle,
 	TrimRegion,
+	WebcamFocusRegion,
 	WebcamLayoutPreset,
-	WebcamSizePreset,
+	WebcamMaskShape,
+	WebcamSegment,
 	ZoomRegion,
 } from "@/components/video-editor/types";
-import { BackgroundLoadError } from "@/lib/wallpaper";
-import type { CursorRecordingData } from "@/native/contracts";
-import { getPlatform } from "@/utils/platformUtils";
 import { FrameRenderer } from "./frameRenderer";
+import { SegmentedWebcamSource } from "./segmentedWebcamSource";
 import { StreamingVideoDecoder } from "./streamingDecoder";
-import { TimestampedVideoFrameQueue } from "./timestampedVideoFrameQueue";
 import type {
 	ExportProgress,
 	ExportResult,
@@ -26,7 +27,7 @@ const GIF_WORKER_URL = new URL("gif.js/dist/gif.worker.js", import.meta.url).toS
 
 interface GifExporterConfig {
 	videoUrl: string;
-	webcamVideoUrl?: string;
+	webcamSegments?: WebcamSegment[];
 	width: number;
 	height: number;
 	frameRate: GifFrameRate;
@@ -45,20 +46,20 @@ interface GifExporterConfig {
 	videoPadding?: number;
 	cropRegion: CropRegion;
 	webcamLayoutPreset?: WebcamLayoutPreset;
-	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
-	webcamSizePreset?: WebcamSizePreset;
+	webcamMaskShape?: WebcamMaskShape;
+	webcamSizePreset?: import("@/components/video-editor/types").WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
-	cursorRecordingData?: CursorRecordingData | null;
-	cursorScale?: number;
-	cursorSmoothing?: number;
-	cursorMotionBlur?: number;
-	cursorClickBounce?: number;
-	cursorClipToBounds?: boolean;
+	webcamCornerPreset?: import("@/components/video-editor/types").WebcamCornerPreset | null;
+	webcamStackPosition?: import("@/components/video-editor/types").WebcamStackPosition | null;
+	webcamFocusZoom?: number;
 	annotationRegions?: AnnotationRegion[];
+	webcamFocusRegions?: WebcamFocusRegion[];
 	previewWidth?: number;
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
-	cursorClickTimestamps?: number[];
+	subtitleRegions?: SubtitleItem[];
+	showSubtitles?: boolean;
+	subtitleStyle?: SubtitleStyle;
 	onProgress?: (progress: ExportProgress) => void;
 }
 
@@ -114,7 +115,7 @@ export function calculateOutputDimensions(
 export class GifExporter {
 	private config: GifExporterConfig;
 	private streamingDecoder: StreamingVideoDecoder | null = null;
-	private webcamDecoder: StreamingVideoDecoder | null = null;
+	private webcamSource: SegmentedWebcamSource | null = null;
 	private renderer: FrameRenderer | null = null;
 	private gif: GIF | null = null;
 	private cancelled = false;
@@ -124,24 +125,25 @@ export class GifExporter {
 	}
 
 	async export(): Promise<ExportResult> {
-		let webcamFrameQueue: TimestampedVideoFrameQueue | null = null;
-
-		const warnings: string[] = [];
-		const onWarning = (message: string) => warnings.push(message);
-
 		try {
-			const platform = await getPlatform();
-
 			this.cleanup();
 			this.cancelled = false;
 
 			// Initialize streaming decoder and load video metadata
 			this.streamingDecoder = new StreamingVideoDecoder();
 			const videoInfo = await this.streamingDecoder.loadMetadata(this.config.videoUrl);
-			let webcamInfo: Awaited<ReturnType<StreamingVideoDecoder["loadMetadata"]>> | null = null;
-			if (this.config.webcamVideoUrl) {
-				this.webcamDecoder = new StreamingVideoDecoder();
-				webcamInfo = await this.webcamDecoder.loadMetadata(this.config.webcamVideoUrl);
+
+			// Probe the first webcam segment for renderer dimensions
+			const segments = this.config.webcamSegments ?? [];
+			let webcamSize: { width: number; height: number } | null = null;
+			if (segments.length > 0) {
+				const probeDecoder = new StreamingVideoDecoder();
+				try {
+					const info = await probeDecoder.loadMetadata(segments[0].videoPath);
+					webcamSize = { width: info.width, height: info.height };
+				} finally {
+					probeDecoder.destroy();
+				}
 			}
 
 			// Initialize frame renderer
@@ -157,26 +159,25 @@ export class GifExporter {
 				borderRadius: this.config.borderRadius,
 				padding: this.config.padding,
 				cropRegion: this.config.cropRegion,
-				cursorRecordingData: this.config.cursorRecordingData,
-				cursorScale: this.config.cursorScale,
-				cursorSmoothing: this.config.cursorSmoothing,
-				cursorMotionBlur: this.config.cursorMotionBlur,
-				cursorClickBounce: this.config.cursorClickBounce,
-				cursorClipToBounds: this.config.cursorClipToBounds,
 				videoWidth: videoInfo.width,
 				videoHeight: videoInfo.height,
-				webcamSize: webcamInfo ? { width: webcamInfo.width, height: webcamInfo.height } : null,
+				webcamSize,
 				webcamLayoutPreset: this.config.webcamLayoutPreset,
 				webcamMaskShape: this.config.webcamMaskShape,
 				webcamSizePreset: this.config.webcamSizePreset,
 				webcamPosition: this.config.webcamPosition,
+				webcamCornerPreset: this.config.webcamCornerPreset,
+				webcamStackPosition: this.config.webcamStackPosition,
+				webcamFocusZoom: this.config.webcamFocusZoom,
 				annotationRegions: this.config.annotationRegions,
+				subtitleRegions: this.config.subtitleRegions,
+				showSubtitles: this.config.showSubtitles,
+				subtitleStyle: this.config.subtitleStyle,
 				speedRegions: this.config.speedRegions,
+				webcamFocusRegions: this.config.webcamFocusRegions,
 				previewWidth: this.config.previewWidth,
 				previewHeight: this.config.previewHeight,
 				cursorTelemetry: this.config.cursorTelemetry,
-				cursorClickTimestamps: this.config.cursorClickTimestamps,
-				platform,
 			});
 			await this.renderer.initialize();
 
@@ -198,11 +199,12 @@ export class GifExporter {
 			});
 
 			// Calculate effective duration and frame count (excluding trim regions)
-			const { effectiveDuration, totalFrames } = this.streamingDecoder.getExportMetrics(
+			const effectiveDuration = this.streamingDecoder.getExportMetrics(
 				this.config.frameRate,
 				this.config.trimRegions,
 				this.config.speedRegions,
-			);
+			).effectiveDuration;
+			const totalFrames = Math.ceil(effectiveDuration * this.config.frameRate);
 
 			// Calculate frame delay in milliseconds (gif.js uses ms)
 			const frameDelay = Math.round(1000 / this.config.frameRate);
@@ -215,44 +217,12 @@ export class GifExporter {
 			console.log("[GifExporter] Loop:", this.config.loop ? "infinite" : "once");
 			console.log("[GifExporter] Using streaming decode (web-demuxer + VideoDecoder)");
 
+			// Start segmented webcam source if there are segments
 			let frameIndex = 0;
-			webcamFrameQueue = this.config.webcamVideoUrl ? new TimestampedVideoFrameQueue() : null;
-			let stopWebcamDecode = false;
-			let webcamDecodeError: Error | null = null;
-			const webcamDecodePromise =
-				this.webcamDecoder && webcamFrameQueue
-					? (() => {
-							const queue = webcamFrameQueue;
-							return this.webcamDecoder
-								.decodeAll(
-									this.config.frameRate,
-									this.config.trimRegions,
-									this.config.speedRegions,
-									async (webcamFrame, _exportTimestampUs, webcamSourceTimestampMs) => {
-										while (queue.length >= 12 && !this.cancelled && !stopWebcamDecode) {
-											await new Promise((resolve) => setTimeout(resolve, 2));
-										}
-										if (this.cancelled || stopWebcamDecode) {
-											webcamFrame.close();
-											return;
-										}
-										queue.enqueue(webcamFrame, webcamSourceTimestampMs);
-									},
-									onWarning,
-								)
-								.catch((error) => {
-									webcamDecodeError = error instanceof Error ? error : new Error(String(error));
-									throw error;
-								})
-								.finally(() => {
-									if (webcamDecodeError) {
-										queue.fail(webcamDecodeError);
-									} else {
-										queue.close();
-									}
-								});
-						})()
-					: null;
+			if (segments.length > 0) {
+				this.webcamSource = new SegmentedWebcamSource(segments);
+				this.webcamSource.start(this.config.frameRate);
+			}
 
 			// Stream decode and process frames — no seeking!
 			await this.streamingDecoder.decodeAll(
@@ -266,8 +236,8 @@ export class GifExporter {
 							return;
 						}
 
-						webcamFrame = webcamFrameQueue
-							? await webcamFrameQueue.frameAt(sourceTimestampMs)
+						webcamFrame = this.webcamSource
+							? await this.webcamSource.getFrame(sourceTimestampMs)
 							: null;
 						const renderer = this.renderer;
 						if (this.cancelled || !renderer) {
@@ -300,17 +270,13 @@ export class GifExporter {
 						webcamFrame?.close();
 					}
 				},
-				onWarning,
 			);
 
 			if (this.cancelled) {
 				return { success: false, error: "Export cancelled" };
 			}
 
-			stopWebcamDecode = true;
-			webcamFrameQueue?.destroy();
-			this.webcamDecoder?.cancel();
-			await webcamDecodePromise;
+			this.webcamSource?.stop();
 
 			// Update progress to show we're now in the finalizing phase
 			if (this.config.onProgress) {
@@ -347,18 +313,14 @@ export class GifExporter {
 				this.gif!.render();
 			});
 
-			return { success: true, blob, warnings: warnings.length > 0 ? warnings : undefined };
+			return { success: true, blob };
 		} catch (error) {
-			if (error instanceof BackgroundLoadError) {
-				throw error;
-			}
 			console.error("GIF Export error:", error);
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : String(error),
 			};
 		} finally {
-			webcamFrameQueue?.destroy();
 			this.cleanup();
 		}
 	}
@@ -368,8 +330,8 @@ export class GifExporter {
 		if (this.streamingDecoder) {
 			this.streamingDecoder.cancel();
 		}
-		if (this.webcamDecoder) {
-			this.webcamDecoder.cancel();
+		if (this.webcamSource) {
+			this.webcamSource.stop();
 		}
 		if (this.gif) {
 			this.gif.abort();
@@ -387,13 +349,13 @@ export class GifExporter {
 			this.streamingDecoder = null;
 		}
 
-		if (this.webcamDecoder) {
+		if (this.webcamSource) {
 			try {
-				this.webcamDecoder.destroy();
+				this.webcamSource.destroy();
 			} catch (e) {
-				console.warn("Error destroying webcam decoder:", e);
+				console.warn("Error destroying webcam source:", e);
 			}
-			this.webcamDecoder = null;
+			this.webcamSource = null;
 		}
 
 		if (this.renderer) {

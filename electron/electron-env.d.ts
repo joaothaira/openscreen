@@ -291,6 +291,14 @@ interface Window {
 			projectState: unknown;
 			logs: string[];
 		}) => Promise<{ success: boolean; path?: string; canceled?: boolean; error?: string }>;
+		generateSubtitles: (
+			videoPath: string,
+			lang?: string,
+		) => Promise<{
+			success: boolean;
+			subtitles?: Array<{ id: string; startMs: number; endMs: number; text: string }>;
+			error?: string;
+		}>;
 	};
 }
 

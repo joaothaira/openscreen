@@ -46,7 +46,24 @@
 		"dualFrame": "雙畫框",
 		"webcamShape": "攝影機形狀",
 		"webcamSize": "攝影機大小",
-		"noWebcam": "無網路攝影機"
+		"noWebcam": "無網路攝影機",
+		"webcamSizeSmall": "S",
+		"webcamSizeMedium": "M",
+		"webcamSizeLarge": "L",
+		"focusShape": "Focus Shape",
+		"deleteFocusRegion": "Delete Focus Region",
+		"addCameraVideo": "Add Camera Video",
+		"removeCameraVideo": "Remove Camera Video",
+		"changeCameraVideo": "Change/Upload Camera Video",
+		"position": "Position",
+		"corner_top_left": "Top Left",
+		"corner_top_right": "Top Right",
+		"corner_center_left": "Center Left",
+		"corner_center_right": "Center Right",
+		"corner_bottom_left": "Bottom Left",
+		"corner_bottom_right": "Bottom Right",
+		"stack_top": "Webcam Top",
+		"stack_bottom": "Webcam Bottom"
 	},
 	"effects": {
 		"title": "影片效果",
@@ -176,7 +193,8 @@
 		"deco": "裝飾",
 		"simple": "簡約",
 		"modern": "現代",
-		"clean": "簡潔"
+		"clean": "簡潔",
+		"stencil": "Stencil"
 	},
 	"customFont": {
 		"dialogTitle": "新增 Google 字體",
@@ -211,5 +229,20 @@
 	"timeline": {
 		"title": "時間軸",
 		"waveform": "在剪輯軌道上顯示音訊波形"
+	},
+	"textAnimation": {
+		"title": "Text Animation",
+		"selectAnimation": "Select animation",
+		"none": "None",
+		"fade": "Fade",
+		"rise": "Rise",
+		"pop": "Pop",
+		"slideLeft": "Slide Left",
+		"typewriter": "Typewriter",
+		"pulse": "Pulse"
+	},
+	"links": {
+		"reportBug": "Report a Bug",
+		"starOnGithub": "Star on GitHub"
 	}
 }

@@ -45,7 +45,24 @@
 		"dualFrame": "إطار مزدوج",
 		"webcamShape": "شكل الكاميرا",
 		"webcamSize": "حجم كاميرا الويب",
-		"noWebcam": "بدون كاميرا"
+		"noWebcam": "بدون كاميرا",
+		"webcamSizeSmall": "S",
+		"webcamSizeMedium": "M",
+		"webcamSizeLarge": "L",
+		"focusShape": "Focus Shape",
+		"deleteFocusRegion": "Delete Focus Region",
+		"addCameraVideo": "Add Camera Video",
+		"removeCameraVideo": "Remove Camera Video",
+		"changeCameraVideo": "Change/Upload Camera Video",
+		"position": "Position",
+		"corner_top_left": "Top Left",
+		"corner_top_right": "Top Right",
+		"corner_center_left": "Center Left",
+		"corner_center_right": "Center Right",
+		"corner_bottom_left": "Bottom Left",
+		"corner_bottom_right": "Bottom Right",
+		"stack_top": "Webcam Top",
+		"stack_bottom": "Webcam Bottom"
 	},
 	"effects": {
 		"title": "تأثيرات الفيديو",
@@ -175,7 +192,8 @@
 		"deco": "ديكو",
 		"simple": "بسيط",
 		"modern": "حديث",
-		"clean": "نظيف"
+		"clean": "نظيف",
+		"stencil": "Stencil"
 	},
 	"customFont": {
 		"dialogTitle": "إضافة خط Google",
@@ -210,5 +228,20 @@
 	"timeline": {
 		"title": "المخطط الزمني",
 		"waveform": "عرض الموجة الصوتية على مسار القطع"
+	},
+	"textAnimation": {
+		"title": "Text Animation",
+		"selectAnimation": "Select animation",
+		"none": "None",
+		"fade": "Fade",
+		"rise": "Rise",
+		"pop": "Pop",
+		"slideLeft": "Slide Left",
+		"typewriter": "Typewriter",
+		"pulse": "Pulse"
+	},
+	"links": {
+		"reportBug": "Report a Bug",
+		"starOnGithub": "Star on GitHub"
 	}
 }

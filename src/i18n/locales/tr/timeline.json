@@ -5,14 +5,17 @@
 		"addTrim": "Kırpma Ekle (T)",
 		"addAnnotation": "Açıklama Ekle (A)",
 		"addSpeed": "Hız Ekle (S)",
-		"addBlur": "Bulanık ekle (B)"
+		"addBlur": "Bulanık ekle (B)",
+		"addWebcamFocus": "Add Webcam Focus"
 	},
 	"hints": {
 		"pressZoom": "Yakınlaştırma eklemek için Z tuşuna basın",
 		"pressTrim": "Kırpma eklemek için T tuşuna basın",
 		"pressAnnotation": "Açıklama eklemek için A tuşuna basın",
 		"pressSpeed": "Hız eklemek için S tuşuna basın",
-		"pressBlur": "Bulanık bölge eklemek için B tuşuna basın"
+		"pressBlur": "Bulanık bölge eklemek için B tuşuna basın",
+		"pressWebcamFocus": "Click to add webcam focus",
+		"webcamSegment": "Webcam clip"
 	},
 	"labels": {
 		"pan": "Kaydır",
@@ -25,7 +28,9 @@
 		"annotationItem": "Açıklama",
 		"imageItem": "Görüntü",
 		"emptyText": "Boş metin",
-		"blurItem": "Bulanık {{index}}"
+		"blurItem": "Bulanık {{index}}",
+		"webcamFocusItem": "Cam Focus {{index}}",
+		"webcamSegmentItem": "Clip {{index}}"
 	},
 	"emptyState": {
 		"noVideo": "Video Yüklenmedi",
@@ -46,7 +51,9 @@
 		"cannotPlaceTrim": "Buraya kırpma yerleştirilemiyor",
 		"trimExistsAtLocation": "Bu konumda zaten bir kırpma var veya yeterli alan yok.",
 		"cannotPlaceSpeed": "Buraya hız yerleştirilemiyor",
-		"speedExistsAtLocation": "Bu konumda zaten bir hız bölgesi var veya yeterli alan yok."
+		"speedExistsAtLocation": "Bu konumda zaten bir hız bölgesi var veya yeterli alan yok.",
+		"cannotPlaceWebcamFocus": "Cannot place webcam focus here",
+		"webcamFocusExistsAtLocation": "Webcam focus already exists at this location or not enough space available."
 	},
 	"success": {
 		"addedZoomSuggestions": "{{count}} imleç tabanlı yakınlaştırma önerisi eklendi",

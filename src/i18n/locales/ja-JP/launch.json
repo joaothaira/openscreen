@@ -9,7 +9,8 @@
 		"openVideoFile": "動画ファイルを開く",
 		"openProject": "プロジェクトを開く",
 		"useVerticalTray": "縦型トレイを使用",
-		"useHorizontalTray": "横型トレイを使用"
+		"useHorizontalTray": "横型トレイを使用",
+		"openStudio": "Open Studio"
 	},
 	"audio": {
 		"enableSystemAudio": "システム音声を有効にする",
@@ -34,7 +35,10 @@
 		"loading": "ソースを読み込み中...",
 		"screens": "画面 ({{count}})",
 		"windows": "ウィンドウ ({{count}})",
-		"defaultSourceName": "画面"
+		"defaultSourceName": "画面",
+		"emptyTitle": "No screens or windows found",
+		"emptyDescription": "If you just granted screen recording permission, reload this picker. On macOS you may need to reopen OpenScreen.",
+		"loadFailedDescription": "OpenScreen could not load capture sources. Reload this picker and try again."
 	},
 	"recording": {
 		"selectSource": "録画するソースを選択してください"

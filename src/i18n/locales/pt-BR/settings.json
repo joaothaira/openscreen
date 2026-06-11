@@ -23,7 +23,8 @@
 			"x": "X (%)",
 			"y": "Y (%)",
 			"hint": "0 = mais à esquerda / topo, 100 = mais à direita / inferior"
-		}
+		},
+		"previewHold": "Hold to preview zoom effect"
 	},
 	"speed": {
 		"playbackSpeed": "Velocidade de Reprodução",
@@ -44,7 +45,24 @@
 		"dualFrame": "Quadro Duplo",
 		"noWebcam": "Sem Webcam",
 		"webcamShape": "Formato da Câmera",
-		"webcamSize": "Tamanho da Webcam"
+		"webcamSize": "Tamanho da Webcam",
+		"webcamSizeSmall": "S",
+		"webcamSizeMedium": "M",
+		"webcamSizeLarge": "L",
+		"focusShape": "Focus Shape",
+		"deleteFocusRegion": "Delete Focus Region",
+		"addCameraVideo": "Add Camera Video",
+		"removeCameraVideo": "Remove Camera Video",
+		"changeCameraVideo": "Change/Upload Camera Video",
+		"position": "Position",
+		"corner_top_left": "Top Left",
+		"corner_top_right": "Top Right",
+		"corner_center_left": "Center Left",
+		"corner_center_right": "Center Right",
+		"corner_bottom_left": "Bottom Left",
+		"corner_bottom_right": "Bottom Right",
+		"stack_top": "Webcam Top",
+		"stack_bottom": "Webcam Bottom"
 	},
 	"effects": {
 		"title": "Efeitos de Vídeo",
@@ -97,7 +115,8 @@
 	},
 	"project": {
 		"save": "Salvar Projeto",
-		"load": "Carregar Projeto"
+		"load": "Carregar Projeto",
+		"new": "New Project"
 	},
 	"export": {
 		"videoButton": "Exportar Vídeo",
@@ -160,7 +179,9 @@
 		"invalidImageType": "Tipo de imagem inválido",
 		"imageFormatsOnly": "Por favor, envie um arquivo de imagem JPG, PNG, GIF ou WebP.",
 		"imageUploadSuccess": "Imagem enviada com sucesso!",
-		"failedImageUpload": "Falha ao enviar imagem"
+		"failedImageUpload": "Falha ao enviar imagem",
+		"textAnimation": "Text Animation",
+		"selectAnimation": "Select animation"
 	},
 	"fontStyles": {
 		"classic": "Clássico",
@@ -170,7 +191,8 @@
 		"deco": "Deco",
 		"simple": "Simples",
 		"modern": "Moderno",
-		"clean": "Clean"
+		"clean": "Clean",
+		"stencil": "Stencil"
 	},
 	"customFont": {
 		"dialogTitle": "Adicionar Google Font",
@@ -193,5 +215,33 @@
 	},
 	"language": {
 		"title": "Idioma"
+	},
+	"support": {
+		"reportBug": "Report Bug",
+		"saveDiagnostics": "Save Diagnostics",
+		"starOnGithub": "Star on GitHub"
+	},
+	"textAnimation": {
+		"title": "Text Animation",
+		"selectAnimation": "Select animation",
+		"none": "None",
+		"fade": "Fade",
+		"rise": "Rise",
+		"pop": "Pop",
+		"slideLeft": "Slide Left",
+		"typewriter": "Typewriter",
+		"pulse": "Pulse"
+	},
+	"cursor": {
+		"show": "Show Cursor",
+		"size": "Size",
+		"smoothing": "Smoothing",
+		"motionBlur": "Motion Blur",
+		"clickBounce": "Click Bounce",
+		"clipToBounds": "Clip to Canvas"
+	},
+	"timeline": {
+		"title": "Timeline",
+		"waveform": "Show Audio Waveform on Trim Track"
 	}
 }

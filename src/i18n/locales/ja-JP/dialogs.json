@@ -42,7 +42,6 @@
 		"step1Title": "1. 削除範囲を追加",
 		"step1DescriptionBefore": "キーボードの",
 		"step1DescriptionAfter": "、またはハサミのアイコンをクリックして、削除したい範囲を指定します。",
-
 		"step2Title": "2. 範囲を調整",
 		"step2Description": "赤い領域の両端をドラッグして、削除したい範囲を正確に調整します。"
 	},
@@ -60,7 +59,9 @@
 		"discardAndLoadProject": "破棄してプロジェクトを読み込む",
 		"loadProject": "プロジェクトを読み込む…",
 		"saveProject": "プロジェクトを保存…",
-		"saveProjectAs": "プロジェクトを名前を付けて保存…"
+		"saveProjectAs": "プロジェクトを名前を付けて保存…",
+		"newProject": "New Project",
+		"importVideo": "Import Video File…"
 	},
 	"fileDialogs": {
 		"saveGif": "エクスポートしたGIFを保存",
@@ -73,5 +74,20 @@
 		"videoFiles": "動画ファイル",
 		"openscreenProject": "OpenScreen プロジェクト",
 		"allFiles": "すべてのファイル"
+	},
+	"webcamFocusTutorial": {
+		"triggerLabel": "How webcam focus works",
+		"title": "How Webcam Focus Works",
+		"description": "Draw attention to your face at key moments in your recording.",
+		"explanation": "Webcam Focus lets you mark specific time ranges on the timeline where your webcam should take center stage. During those segments the screen recording blurs and dims while your webcam expands to fill most of the frame. Outside the region everything returns to your normal layout. The transition is smooth in both directions.",
+		"visualExample": "Visual Example",
+		"focusRegion": "CAM FOCUS",
+		"normal": "Normal",
+		"outsideRegion": "Outside region — normal layout",
+		"insideRegion": "Inside region — cam fills frame",
+		"step1Title": "1. Add Region",
+		"step1Description": "Click the camera icon in the timeline toolbar to place a webcam focus region at the playhead. Drag its edges to adjust the duration.",
+		"step2Title": "2. Preview",
+		"step2Description": "Play through the region to see the webcam expand and the background blur. The effect exports with your video."
 	}
 }

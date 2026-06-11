@@ -45,7 +45,24 @@
 		"dualFrame": "デュアルフレーム",
 		"webcamShape": "カメラの形状",
 		"webcamSize": "カメラのサイズ",
-		"noWebcam": "Webカメラなし"
+		"noWebcam": "Webカメラなし",
+		"webcamSizeSmall": "S",
+		"webcamSizeMedium": "M",
+		"webcamSizeLarge": "L",
+		"focusShape": "Focus Shape",
+		"deleteFocusRegion": "Delete Focus Region",
+		"addCameraVideo": "Add Camera Video",
+		"removeCameraVideo": "Remove Camera Video",
+		"changeCameraVideo": "Change/Upload Camera Video",
+		"position": "Position",
+		"corner_top_left": "Top Left",
+		"corner_top_right": "Top Right",
+		"corner_center_left": "Center Left",
+		"corner_center_right": "Center Right",
+		"corner_bottom_left": "Bottom Left",
+		"corner_bottom_right": "Bottom Right",
+		"stack_top": "Webcam Top",
+		"stack_bottom": "Webcam Bottom"
 	},
 	"effects": {
 		"title": "動画効果",
@@ -163,7 +180,9 @@
 		"invalidImageType": "無効なファイル形式",
 		"imageFormatsOnly": "JPG、PNG、GIF、またはWebP画像ファイルを選択してください。",
 		"imageUploadSuccess": "画像を読み込みました。",
-		"failedImageUpload": "画像の読み込みに失敗しました"
+		"failedImageUpload": "画像の読み込みに失敗しました",
+		"textAnimation": "Text Animation",
+		"selectAnimation": "Select animation"
 	},
 	"fontStyles": {
 		"classic": "クラシック",
@@ -173,7 +192,8 @@
 		"deco": "デコ",
 		"simple": "シンプル",
 		"modern": "モダン",
-		"clean": "クリーン"
+		"clean": "クリーン",
+		"stencil": "Stencil"
 	},
 	"textAnimation": {
 		"title": "テキストアニメーション",
@@ -219,5 +239,9 @@
 	"timeline": {
 		"title": "タイムライン",
 		"waveform": "トリムトラックにオーディオ波形を表示"
+	},
+	"links": {
+		"reportBug": "Report a Bug",
+		"starOnGithub": "Star on GitHub"
 	}
 }

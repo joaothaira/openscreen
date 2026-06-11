@@ -5,14 +5,17 @@
 		"addTrim": "Добавить обрезку (T)",
 		"addAnnotation": "Добавить аннотацию (A)",
 		"addBlur": "Добавить размытие (B)",
-		"addSpeed": "Изменить скорость (S)"
+		"addSpeed": "Изменить скорость (S)",
+		"addWebcamFocus": "Add Webcam Focus"
 	},
 	"hints": {
 		"pressZoom": "Нажмите Z для добавления масштабирования",
 		"pressTrim": "Нажмите T для добавления обрезки",
 		"pressAnnotation": "Нажмите A для добавления аннотации",
 		"pressBlur": "Нажмите B для добавления области размытия",
-		"pressSpeed": "Нажмите S для изменения скорости"
+		"pressSpeed": "Нажмите S для изменения скорости",
+		"pressWebcamFocus": "Click to add webcam focus",
+		"webcamSegment": "Webcam clip"
 	},
 	"labels": {
 		"pan": "Панорамирование",
@@ -25,7 +28,9 @@
 		"annotationItem": "Аннотация",
 		"blurItem": "Размытие {{index}}",
 		"imageItem": "Изображение",
-		"emptyText": "Пустой текст"
+		"emptyText": "Пустой текст",
+		"webcamFocusItem": "Cam Focus {{index}}",
+		"webcamSegmentItem": "Clip {{index}}"
 	},
 	"emptyState": {
 		"noVideo": "Видео не загружено",
@@ -46,7 +51,9 @@
 		"cannotPlaceTrim": "Невозможно разместить обрезку здесь",
 		"trimExistsAtLocation": "Обрезка уже существует в этом месте или недостаточно свободного места.",
 		"cannotPlaceSpeed": "Невозможно разместить изменение скорости здесь",
-		"speedExistsAtLocation": "Область изменения скорости уже существует в этом месте или недостаточно свободного места."
+		"speedExistsAtLocation": "Область изменения скорости уже существует в этом месте или недостаточно свободного места.",
+		"cannotPlaceWebcamFocus": "Cannot place webcam focus here",
+		"webcamFocusExistsAtLocation": "Webcam focus already exists at this location or not enough space available."
 	},
 	"success": {
 		"addedZoomSuggestions": "Добавлено {{count}} предложение масштабирования на основе курсора",

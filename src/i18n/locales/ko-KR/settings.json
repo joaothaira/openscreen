@@ -45,7 +45,24 @@
 		"webcamShape": "카메라 모양",
 		"webcamSize": "웹캠 크기",
 		"dualFrame": "듀얼 프레임",
-		"noWebcam": "웹캠 없음"
+		"noWebcam": "웹캠 없음",
+		"webcamSizeSmall": "S",
+		"webcamSizeMedium": "M",
+		"webcamSizeLarge": "L",
+		"focusShape": "Focus Shape",
+		"deleteFocusRegion": "Delete Focus Region",
+		"addCameraVideo": "Add Camera Video",
+		"removeCameraVideo": "Remove Camera Video",
+		"changeCameraVideo": "Change/Upload Camera Video",
+		"position": "Position",
+		"corner_top_left": "Top Left",
+		"corner_top_right": "Top Right",
+		"corner_center_left": "Center Left",
+		"corner_center_right": "Center Right",
+		"corner_bottom_left": "Bottom Left",
+		"corner_bottom_right": "Bottom Right",
+		"stack_top": "Webcam Top",
+		"stack_bottom": "Webcam Bottom"
 	},
 	"effects": {
 		"title": "비디오 효과",
@@ -163,7 +180,9 @@
 		"invalidImageType": "지원하지 않는 파일 형식입니다",
 		"imageFormatsOnly": "JPG, PNG, GIF 또는 WebP 이미지 파일을 업로드해 주세요.",
 		"imageUploadSuccess": "이미지가 성공적으로 업로드되었습니다!",
-		"failedImageUpload": "이미지 업로드에 실패했습니다"
+		"failedImageUpload": "이미지 업로드에 실패했습니다",
+		"textAnimation": "Text Animation",
+		"selectAnimation": "Select animation"
 	},
 	"fontStyles": {
 		"classic": "클래식",
@@ -173,7 +192,8 @@
 		"deco": "데코",
 		"simple": "심플",
 		"modern": "모던",
-		"clean": "클린"
+		"clean": "클린",
+		"stencil": "Stencil"
 	},
 	"textAnimation": {
 		"title": "텍스트 애니메이션",
@@ -219,5 +239,9 @@
 	"timeline": {
 		"title": "타임라인",
 		"waveform": "트림 트랙에 오디오 파형 표시"
+	},
+	"links": {
+		"reportBug": "Report a Bug",
+		"starOnGithub": "Star on GitHub"
 	}
 }

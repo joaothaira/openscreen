@@ -283,10 +283,11 @@ function renderText(
 	ctx.rect(x, y, width, height);
 	ctx.clip();
 
-	const fontWeight = style.fontWeight === "bold" ? "bold" : "normal";
+	const fontWeight = style.fontWeight ?? "normal";
+	const fontStretch = style.fontStretch ?? "normal";
 	const fontStyle = style.fontStyle === "italic" ? "italic" : "normal";
 	const scaledFontSize = style.fontSize * scaleFactor;
-	ctx.font = `${fontStyle} ${fontWeight} ${scaledFontSize}px ${style.fontFamily}`;
+	ctx.font = `${fontStyle} ${fontWeight} ${fontStretch} ${scaledFontSize}px ${style.fontFamily}`;
 	ctx.textBaseline = "middle";
 
 	const containerPadding = 8 * scaleFactor;
@@ -406,32 +407,87 @@ async function renderImage(
 	y: number,
 	width: number,
 	height: number,
+	scaleFactor: number,
+	currentTimeMs: number,
 ): Promise<void> {
 	if (!annotation.content || !annotation.content.startsWith("data:image")) {
 		return;
 	}
 
+	const borderRadius = (annotation.style.borderRadius ?? 0) * scaleFactor;
+	const imgData = annotation.imageData;
+	const timeIntoAnnotation = currentTimeMs - annotation.startMs;
+	const totalDuration = annotation.endMs - annotation.startMs;
+	const animDuration = imgData?.animationDuration ?? 500;
+
+	const rawProgress = Math.min(1, Math.max(0, timeIntoAnnotation / animDuration));
+	const p = 1 - Math.pow(1 - rawProgress, 3);
+	const animType = imgData?.animationType ?? "none";
+
+	const fadeOutStart = Math.max(0, totalDuration - animDuration);
+	const exitRaw = imgData?.fadeOut
+		? Math.min(1, Math.max(0, (timeIntoAnnotation - fadeOutStart) / animDuration))
+		: 0;
+	const exitOpacity = imgData?.fadeOut ? 1 - exitRaw : 1;
+
+	const animOpacity = (animType !== "none" && rawProgress < 1 ? p : 1) * exitOpacity;
+	let offsetX = 0;
+	let offsetY = 0;
+	let zoomScale = 1;
+	if (animType !== "none" && rawProgress < 1) {
+		if (animType === "slide-up") offsetY = (1 - p) * height * 0.5;
+		else if (animType === "slide-down") offsetY = -(1 - p) * height * 0.5;
+		else if (animType === "slide-left") offsetX = (1 - p) * width * 0.5;
+		else if (animType === "slide-right") offsetX = -(1 - p) * width * 0.5;
+		else if (animType === "zoom") zoomScale = 0.75 + 0.25 * p;
+	}
+
 	return new Promise((resolve) => {
 		const img = new Image();
 		img.onload = () => {
-			// Preserve aspect ratio - contain the image within the bounds
+			ctx.save();
+			ctx.globalAlpha *= animOpacity;
+
+			// Clip to annotation bounds (static — slide/zoom stays inside the box)
+			ctx.beginPath();
+			if (borderRadius > 0) {
+				ctx.roundRect(x, y, width, height, borderRadius);
+			} else {
+				ctx.rect(x, y, width, height);
+			}
+			ctx.clip();
+
+			// object-cover: fill the box, center-crop
 			const imgAspect = img.width / img.height;
 			const boxAspect = width / height;
-
 			let drawWidth = width;
 			let drawHeight = height;
 			let drawX = x;
 			let drawY = y;
 
 			if (imgAspect > boxAspect) {
-				drawHeight = width / imgAspect;
-				drawY = y + (height - drawHeight) / 2;
-			} else {
 				drawWidth = height * imgAspect;
-				drawX = x + (width - drawWidth) / 2;
+				drawX = x - (drawWidth - width) / 2;
+			} else {
+				drawHeight = width / imgAspect;
+				drawY = y - (drawHeight - height) / 2;
+			}
+
+			// Apply animation offset / zoom
+			if (zoomScale !== 1) {
+				const cx = x + width / 2;
+				const cy = y + height / 2;
+				drawX = cx - (drawWidth * zoomScale) / 2;
+				drawY = cy - (drawHeight * zoomScale) / 2;
+				drawWidth *= zoomScale;
+				drawHeight *= zoomScale;
+			} else {
+				drawX += offsetX;
+				drawY += offsetY;
 			}
 
 			ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+			ctx.restore();
 			resolve();
 		};
 		img.onerror = () => {
@@ -440,6 +496,302 @@ async function renderImage(
 		};
 		img.src = annotation.content;
 	});
+}
+
+function renderMarker(
+	ctx: CanvasRenderingContext2D,
+	annotation: AnnotationRegion,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	currentTimeMs: number,
+) {
+	const data = annotation.markerData;
+	if (!data) return;
+
+	const timeIntoAnnotation = currentTimeMs - annotation.startMs;
+	const totalDuration = annotation.endMs - annotation.startMs;
+	const fadeOutStart = Math.max(0, totalDuration - 500);
+	const globalOpacity =
+		timeIntoAnnotation >= fadeOutStart
+			? Math.max(0, 1 - (timeIntoAnnotation - fadeOutStart) / 500)
+			: 1;
+
+	const sweepProgress = Math.min(1, Math.max(0, timeIntoAnnotation / data.animationDuration));
+
+	let drawX = x;
+	let drawW = width * sweepProgress;
+	if (data.direction === "right") {
+		drawX = x + width * (1 - sweepProgress);
+	}
+
+	ctx.save();
+	ctx.globalAlpha = data.opacity * globalOpacity;
+	ctx.fillStyle = data.color;
+	ctx.fillRect(drawX, y, drawW, height);
+	ctx.restore();
+}
+
+async function renderCaption(
+	ctx: CanvasRenderingContext2D,
+	annotation: AnnotationRegion,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	scaleFactor: number,
+	currentTimeMs: number,
+): Promise<void> {
+	const data = annotation.captionData;
+	if (!data) return;
+
+	const timeIntoAnnotation = currentTimeMs - annotation.startMs;
+	const totalDuration = annotation.endMs - annotation.startMs;
+	const fadeOutStart = Math.max(0, totalDuration - 500);
+	const globalOpacity =
+		timeIntoAnnotation >= fadeOutStart
+			? Math.max(0, 1 - (timeIntoAnnotation - fadeOutStart) / 500)
+			: 1;
+	const fadeInOpacity = Math.min(1, Math.max(0, timeIntoAnnotation / 400));
+	const backgroundOpacity = fadeInOpacity * globalOpacity;
+
+	ctx.save();
+
+	// Gradient background
+	if (data.gradientDirection !== "none" && backgroundOpacity > 0) {
+		let x0 = x,
+			y0 = y,
+			x1 = x,
+			y1 = y;
+		switch (data.gradientDirection) {
+			case "bottom":
+				y0 = y + height;
+				y1 = y;
+				x1 = x;
+				break;
+			case "top":
+				y0 = y;
+				y1 = y + height;
+				break;
+			case "left":
+				x0 = x;
+				x1 = x + width;
+				break;
+			case "right":
+				x0 = x + width;
+				x1 = x;
+				break;
+		}
+		const grad = ctx.createLinearGradient(x0, y0, x1, y1);
+		grad.addColorStop(0, `rgba(0,0,0,${0.88 * backgroundOpacity})`);
+		grad.addColorStop(0.6, `rgba(0,0,0,${0.4 * backgroundOpacity})`);
+		grad.addColorStop(1, "rgba(0,0,0,0)");
+		ctx.fillStyle = grad;
+		ctx.fillRect(x, y, width, height + 4); // +4 covers bottom edge
+	}
+
+	const padding = 20 * scaleFactor;
+	const lineGap = 4 * scaleFactor;
+	const imageGap = 6 * scaleFactor;
+	const primaryFontSize = data.primaryFontSize * scaleFactor;
+	const secondaryFontSize = data.secondaryFontSize * scaleFactor;
+
+	// For left/right gradients pin to that side; otherwise follow textAlign
+	const effectiveAlign =
+		data.gradientDirection === "left"
+			? "left"
+			: data.gradientDirection === "right"
+				? "right"
+				: (data.textAlign ?? "center");
+	const isLeft = effectiveAlign === "left";
+	const isRight = effectiveAlign === "right";
+	const isTop = data.gradientDirection === "top";
+
+	const availableWidth = width - 2 * padding;
+
+	// Load image first so we know its dimensions for layout
+	let imgElement: HTMLImageElement | null = null;
+	let imgDrawW = 0;
+	let imgDrawH = 0;
+	if (data.imageUrl) {
+		imgElement = await new Promise<HTMLImageElement | null>((resolve) => {
+			const img = new Image();
+			img.onload = () => resolve(img);
+			img.onerror = () => resolve(null);
+			img.src = data.imageUrl!;
+		});
+		if (imgElement) {
+			const maxH = height * 0.35;
+			const maxW = width * 0.6;
+			const aspect = imgElement.width / imgElement.height;
+			imgDrawW = Math.min(maxW, maxH * aspect);
+			imgDrawH = imgDrawW / aspect;
+			if (imgDrawH > maxH) {
+				imgDrawH = maxH;
+				imgDrawW = imgDrawH * aspect;
+			}
+		}
+	}
+	const imageBlockHeight = imgElement ? imgDrawH + imageGap : 0;
+
+	// Wrap text into lines that fit within availableWidth
+	const wrapText = (text: string, fontSize: number): string[][] => {
+		const uppercased = text.toUpperCase();
+		const words = uppercased.split(" ").filter((w) => w.length > 0);
+		ctx.font = `${data.fontWeight ?? "700"} ${data.fontStretch ?? "normal"} ${fontSize}px ${data.fontFamily}`;
+		const spaceWidth = ctx.measureText(" ").width;
+		const lines: string[][] = [];
+		let currentLine: string[] = [];
+		let currentLineWidth = 0;
+
+		for (const word of words) {
+			const wordWidth = ctx.measureText(word).width;
+			const addWidth = currentLine.length > 0 ? spaceWidth + wordWidth : wordWidth;
+			if (currentLine.length > 0 && currentLineWidth + addWidth > availableWidth) {
+				lines.push(currentLine);
+				currentLine = [word];
+				currentLineWidth = wordWidth;
+			} else {
+				currentLine.push(word);
+				currentLineWidth += addWidth;
+			}
+		}
+		if (currentLine.length > 0) lines.push(currentLine);
+		return lines;
+	};
+
+	// Pre-compute wrapped lines
+	const primaryLines = data.primaryText ? wrapText(data.primaryText, primaryFontSize) : [];
+	const secondaryLines = data.secondaryText ? wrapText(data.secondaryText, secondaryFontSize) : [];
+
+	// Text block height
+	const primaryLineHeight = primaryFontSize * 1.2;
+	const secondaryLineHeight = secondaryFontSize * 1.2;
+	let textHeight = 0;
+	if (primaryLines.length > 0) textHeight += primaryLines.length * primaryLineHeight;
+	if (primaryLines.length > 0 && secondaryLines.length > 0) textHeight += lineGap;
+	if (secondaryLines.length > 0) textHeight += secondaryLines.length * secondaryLineHeight;
+
+	const totalBlockHeight = imageBlockHeight + textHeight;
+
+	// Compute image and text start positions matching preview flexbox layout
+	let imageStartY: number;
+	let textStartY: number;
+	if (isTop) {
+		// flex-start: image at top, text below
+		imageStartY = y + padding;
+		textStartY = y + padding + imageBlockHeight;
+	} else if (data.gradientDirection === "left" || data.gradientDirection === "right") {
+		// justify-content: center — center the whole block
+		imageStartY = y + (height - totalBlockHeight) / 2;
+		textStartY = imageStartY + imageBlockHeight;
+	} else {
+		// bottom / none — flex-end: anchor block to bottom
+		imageStartY = y + height - padding - totalBlockHeight;
+		textStartY = imageStartY + imageBlockHeight;
+	}
+
+	// Render wrapped lines with per-word animation
+	const renderWrappedLines = (
+		lines: string[][],
+		startWordIndex: number,
+		color: string,
+		fontSize: number,
+		blockStartY: number,
+	) => {
+		ctx.font = `${data.fontWeight ?? "700"} ${data.fontStretch ?? "normal"} ${fontSize}px ${data.fontFamily}`;
+		ctx.textBaseline = "top";
+		const spaceWidth = ctx.measureText(" ").width;
+		const lineHeight = fontSize * 1.2;
+		let wordIdx = startWordIndex;
+
+		lines.forEach((lineWords, lineIndex) => {
+			const lineY = blockStartY + lineIndex * lineHeight;
+			const wordWidths = lineWords.map((w) => ctx.measureText(w).width);
+			const totalLineWidth =
+				wordWidths.reduce((a, b) => a + b, 0) + spaceWidth * (lineWords.length - 1);
+
+			let curX: number;
+			if (isRight) curX = x + width - padding - totalLineWidth;
+			else if (isLeft) curX = x + padding;
+			else curX = x + (width - totalLineWidth) / 2;
+
+			lineWords.forEach((word, wi) => {
+				const progress = Math.min(
+					1,
+					Math.max(0, (timeIntoAnnotation - wordIdx * data.wordDelay) / data.animationDuration),
+				);
+				const wordOpacity = progress * globalOpacity;
+				const offsetY = (1 - progress) * 14 * scaleFactor;
+
+				if (wordOpacity > 0) {
+					ctx.save();
+					ctx.globalAlpha = wordOpacity;
+					const isWhite = color.toLowerCase() === "#ffffff";
+					if (isWhite) {
+						ctx.shadowColor = "rgba(0,0,0,0.9)";
+						ctx.shadowBlur = 4 * scaleFactor;
+						ctx.shadowOffsetX = 2 * scaleFactor;
+						ctx.shadowOffsetY = 2 * scaleFactor;
+					} else {
+						// Glow pass
+						ctx.shadowColor = color;
+						ctx.shadowBlur = 20 * scaleFactor;
+						ctx.shadowOffsetX = 0;
+						ctx.shadowOffsetY = 0;
+					}
+					ctx.fillStyle = color;
+					ctx.fillText(word, curX, lineY + offsetY);
+					// Dark drop shadow pass for non-white (matches preview's dual textShadow)
+					if (!isWhite) {
+						ctx.shadowColor = "rgba(0,0,0,0.9)";
+						ctx.shadowBlur = 4 * scaleFactor;
+						ctx.shadowOffsetX = 2 * scaleFactor;
+						ctx.shadowOffsetY = 2 * scaleFactor;
+						ctx.fillText(word, curX, lineY + offsetY);
+					}
+					ctx.restore();
+				}
+				curX += wordWidths[wi] + spaceWidth;
+				wordIdx++;
+			});
+		});
+	};
+
+	// Image above the text block (already loaded for layout; draw synchronously)
+	if (imgElement && imgDrawW > 0) {
+		let ix: number;
+		if (isRight) ix = x + width - padding - imgDrawW;
+		else if (isLeft) ix = x + padding;
+		else ix = x + (width - imgDrawW) / 2;
+
+		ctx.save();
+		ctx.globalAlpha = globalOpacity;
+		ctx.drawImage(imgElement, ix, imageStartY, imgDrawW, imgDrawH);
+		ctx.restore();
+	}
+
+	// Primary text block
+	let currentY = textStartY;
+	const primaryWordCount = primaryLines.reduce((sum, line) => sum + line.length, 0);
+	if (primaryLines.length > 0) {
+		renderWrappedLines(primaryLines, 0, data.primaryColor, primaryFontSize, currentY);
+		currentY += primaryLines.length * primaryLineHeight + lineGap;
+	}
+
+	// Secondary text block
+	if (secondaryLines.length > 0) {
+		renderWrappedLines(
+			secondaryLines,
+			primaryWordCount,
+			data.secondaryColor,
+			secondaryFontSize,
+			currentY,
+		);
+	}
+
+	ctx.restore();
 }
 
 export async function renderAnnotations(
@@ -470,7 +822,7 @@ export async function renderAnnotations(
 				break;
 
 			case "image":
-				await renderImage(ctx, annotation, x, y, width, height);
+				await renderImage(ctx, annotation, x, y, width, height, scaleFactor, currentTimeMs);
 				break;
 
 			case "figure":
@@ -491,6 +843,18 @@ export async function renderAnnotations(
 
 			case "blur":
 				renderBlur(ctx, annotation, x, y, width, height, scaleFactor);
+				break;
+
+			case "caption":
+				if (annotation.captionData) {
+					await renderCaption(ctx, annotation, x, y, width, height, scaleFactor, currentTimeMs);
+				}
+				break;
+
+			case "marker":
+				if (annotation.markerData) {
+					renderMarker(ctx, annotation, x, y, width, height, currentTimeMs);
+				}
 				break;
 		}
 	}

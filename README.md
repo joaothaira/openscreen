@@ -36,6 +36,8 @@ Screen Studio is an awesome product and this is definitely not a 1:1 clone. Open
 - Record a specific window, region, or your whole screen.
 - Record microphone and system audio.
 - Webcam overlay with picture-in-picture, drag-to-position, and shape options.
+- **Webcam Focus** — draw attention to your face at key moments.
+- Captions, markers, and image annotations.
 - Auto or manual zooms with adjustable depth, duration, easing, and pixel-precise position.
 - Wallpapers, solid colors, gradients, or a custom background.
 - Motion blur for smoother pan and zoom transitions.
@@ -46,6 +48,19 @@ Screen Studio is an awesome product and this is definitely not a 1:1 clone. Open
 - Save and reopen projects without re-recording.
 - Export to MP4 or GIF in multiple aspect ratios and resolutions.
 - Translated into Arabic, English, Spanish, French, Japanese, Korean, Russian, Turkish, Vietnamese, Simplified Chinese, and Traditional Chinese.
+
+### Webcam Focus
+
+When you record with a webcam, you can mark specific time ranges on the timeline where the webcam should take center stage. During those segments the screen recording blurs and dims while the webcam expands to fill most of the frame. Outside the region everything returns to the normal layout. Both transitions animate smoothly.
+
+**How to use it:**
+1. Make sure your recording includes a webcam feed.
+2. In the editor, click the **camera icon** (🎥) in the timeline toolbar to place a Webcam Focus region at the current playhead position.
+3. Drag the edges of the indigo region to set the start and end times.
+4. Press **Play** to preview — the webcam enlarges to portrait near-full-screen and the screen recording fades behind it.
+5. Delete a region by selecting it and pressing `Delete` / `Backspace`.
+
+The effect is saved with your project and included in the exported video.
 
 ## Installation
 
