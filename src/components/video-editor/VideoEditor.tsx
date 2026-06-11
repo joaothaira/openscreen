@@ -307,6 +307,7 @@ export default function VideoEditor() {
 	const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
 	const [selectedBlurId, setSelectedBlurId] = useState<string | null>(null);
 	const [selectedSubtitleId, setSelectedSubtitleId] = useState<string | null>(null);
+	const [sidebarTab, setSidebarTab] = useState("settings");
 	const [selectedWebcamFocusId, setSelectedWebcamFocusId] = useState<string | null>(null);
 	const [selectedWebcamSegmentId, setSelectedWebcamSegmentId] = useState<string | null>(null);
 	const [isExporting, setIsExporting] = useState(false);
@@ -1197,6 +1198,8 @@ export default function VideoEditor() {
 			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
+			// Jump the sidebar to this subtitle's editor (Enterprise tab).
+			setSidebarTab("enterprise");
 		}
 	}, []);
 
@@ -3185,7 +3188,11 @@ export default function VideoEditor() {
 								</div>
 
 								<div className="editor-settings-rail min-w-0 h-full">
-									<Tabs defaultValue="settings" className="flex h-full flex-col">
+									<Tabs
+										value={sidebarTab}
+										onValueChange={setSidebarTab}
+										className="flex h-full flex-col"
+									>
 										<TabsList className="mx-3 mt-2 grid grid-cols-2">
 											<TabsTrigger value="settings">Settings</TabsTrigger>
 											<TabsTrigger value="enterprise">Enterprise</TabsTrigger>
@@ -3505,6 +3512,7 @@ export default function VideoEditor() {
 												subtitleStyle={subtitleStyle}
 												onSubtitleStyleChange={handleSubtitleStyleChange}
 												onSubtitleTextChange={handleSubtitleTextChange}
+												selectedSubtitleId={selectedSubtitleId}
 												onGenerateSubtitles={handleGenerateSubtitles}
 												isGeneratingSubtitles={isGeneratingSubtitles}
 												onClearSubtitles={handleClearSubtitles}

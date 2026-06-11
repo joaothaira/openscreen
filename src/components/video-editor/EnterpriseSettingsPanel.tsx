@@ -183,6 +183,8 @@ interface EnterpriseSettingsPanelProps {
 	subtitleStyle?: import("./types").SubtitleStyle;
 	onSubtitleStyleChange?: (style: Partial<import("./types").SubtitleStyle>) => void;
 	onSubtitleTextChange?: (id: string, text: string) => void;
+	/** Subtitle selected on the timeline; opens the Subtitles section and scrolls to it. */
+	selectedSubtitleId?: string | null;
 	onGenerateSubtitles?: () => void;
 	isGeneratingSubtitles?: boolean;
 	onClearSubtitles?: () => void;
@@ -284,6 +286,7 @@ export function EnterpriseSettingsPanel({
 	subtitleStyle,
 	onSubtitleStyleChange,
 	onSubtitleTextChange,
+	selectedSubtitleId,
 	onGenerateSubtitles,
 	isGeneratingSubtitles = false,
 	onClearSubtitles,
@@ -292,6 +295,25 @@ export function EnterpriseSettingsPanel({
 	const [wallpaperPaths, setWallpaperPaths] = useState<string[]>([]);
 	const [customImages, setCustomImages] = useState<string[]>([]);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const [openSections, setOpenSections] = useState<string[]>(() =>
+		hasWebcam ? ["layout", "effects", "background"] : ["effects", "background"],
+	);
+	const subtitleItemRefs = useRef(new Map<string, HTMLTextAreaElement>());
+
+	// Timeline selection drives the sidebar: open the Subtitles section and bring
+	// the selected line's editor into view (after the accordion expand settles).
+	useEffect(() => {
+		if (!selectedSubtitleId) return;
+		setOpenSections((prev) => (prev.includes("subtitles") ? prev : [...prev, "subtitles"]));
+		const timer = window.setTimeout(() => {
+			const el = subtitleItemRefs.current.get(selectedSubtitleId);
+			if (el) {
+				el.scrollIntoView({ behavior: "smooth", block: "center" });
+				el.focus({ preventScroll: true });
+			}
+		}, 220);
+		return () => window.clearTimeout(timer);
+	}, [selectedSubtitleId]);
 
 	useEffect(() => {
 		let mounted = true;
@@ -716,7 +738,8 @@ export function EnterpriseSettingsPanel({
 
 				<Accordion
 					type="multiple"
-					defaultValue={hasWebcam ? ["layout", "effects", "background"] : ["effects", "background"]}
+					value={openSections}
+					onValueChange={setOpenSections}
 					className="space-y-1"
 				>
 					<AccordionItem value="layout" className="border-white/5 rounded-xl bg-white/[0.02] px-3">
@@ -1531,13 +1554,22 @@ export function EnterpriseSettingsPanel({
 													const mm = Math.floor(startSec / 60);
 													const ss = String(Math.floor(startSec % 60)).padStart(2, "0");
 													const ts = `${mm}:${ss}`;
+													const isSelected = sub.id === selectedSubtitleId;
 													return (
 														<div
 															key={sub.id}
-															className="group rounded-lg bg-white/[0.03] border border-white/5 p-2"
+															className={`group rounded-lg bg-white/[0.03] border p-2 ${
+																isSelected
+																	? "border-[#14b8a6]/60 bg-[#14b8a6]/[0.06]"
+																	: "border-white/5"
+															}`}
 														>
 															<div className="text-[10px] text-slate-600 mb-1 font-mono">{ts}</div>
 															<textarea
+																ref={(el) => {
+																	if (el) subtitleItemRefs.current.set(sub.id, el);
+																	else subtitleItemRefs.current.delete(sub.id);
+																}}
 																value={sub.text}
 																onChange={(e) => onSubtitleTextChange?.(sub.id, e.target.value)}
 																rows={2}
