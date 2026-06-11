@@ -84,7 +84,9 @@
 		"recentRecordings": {
 			"title": "Recent recordings",
 			"webcamBadge": "Includes webcam",
-			"openFailed": "Could not open this recording. Its files may have been moved or deleted."
+			"openFailed": "Could not open this recording. Its files may have been moved or deleted.",
+			"recoveredBadge": "Recovered",
+			"recoveredBadgeHint": "This recording was recovered after an interrupted session; its duration was repaired on open."
 		}
 	}
 }

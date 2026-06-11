@@ -261,6 +261,14 @@ export function EditorEmptyState({
 									<span className="min-w-0 flex-1 truncate text-xs text-slate-300">
 										{new Date(recording.createdAt).toLocaleString()}
 									</span>
+									{recording.recovered && (
+										<span
+											className="flex-shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-300"
+											title={te("emptyState.recentRecordings.recoveredBadgeHint")}
+										>
+											{te("emptyState.recentRecordings.recoveredBadge")}
+										</span>
+									)}
 									{recording.webcamVideoPath && (
 										<span
 											className="flex items-center gap-1 rounded bg-[#6366f1]/15 px-1.5 py-0.5 text-[10px] text-[#a5b4fc]"

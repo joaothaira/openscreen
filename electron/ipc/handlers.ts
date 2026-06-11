@@ -40,6 +40,7 @@ import { RECORDINGS_DIR } from "../main";
 import { createCursorRecordingSession } from "../native-bridge/cursor/recording/factory";
 import { requestMacCursorAccessibilityAccess } from "../native-bridge/cursor/recording/macNativeCursorRecordingSession";
 import type { CursorRecordingSession } from "../native-bridge/cursor/recording/session";
+import { repairWebmDurationOnDisk } from "../recording/recoverRecording";
 import { patchWebmDurationOnDisk } from "../recording/webm-duration";
 import { registerNativeBridgeHandlers } from "./nativeBridge";
 import { RecordingStreamRegistry, registerRecordingStreamHandlers } from "./recordingStream";
@@ -2365,6 +2366,57 @@ export function registerIpcHandlers(
 					// Malformed manifest — skip it.
 				}
 			}
+			// Adopt crash-orphaned recordings: a video on disk whose writer never
+			// finalized has no manifest (it's written on stop), so it would be
+			// invisible here even though the streamed bytes survived. Synthesize a
+			// manifest for any recording file that has none and isn't being written
+			// right now; the duration header is repaired lazily on first open.
+			const manifestNames = new Set(manifests);
+			const videoFiles = files.filter((file) => /^recording-\d+\.(webm|mp4)$/.test(file));
+			for (const name of videoFiles) {
+				const manifestName = name.replace(/\.(webm|mp4)$/, RECORDING_SESSION_SUFFIX);
+				if (manifestNames.has(manifestName)) continue;
+				if (recordingStreams.has(name)) continue;
+				const screenVideoPath = path.join(RECORDINGS_DIR, name);
+				if (
+					screenVideoPath === nativeWindowsCaptureTargetPath ||
+					screenVideoPath === nativeMacCaptureTargetPath ||
+					currentRecordingSession?.screenVideoPath === screenVideoPath
+				) {
+					continue;
+				}
+				const stat = await fs.stat(screenVideoPath).catch(() => null);
+				if (!stat || stat.size === 0) continue;
+
+				const webcamName = name.replace(/\.(webm|mp4)$/, "-webcam.webm");
+				const webcamPath = path.join(RECORDINGS_DIR, webcamName);
+				const hasWebcam =
+					!recordingStreams.has(webcamName) &&
+					(await fs
+						.access(webcamPath, fsConstants.R_OK)
+						.then(() => true)
+						.catch(() => false));
+
+				const idMatch = /^recording-(\d+)\./.exec(name);
+				const createdAt = idMatch ? Number(idMatch[1]) : Math.round(stat.mtimeMs);
+				const session: RecordingSession = {
+					screenVideoPath,
+					...(hasWebcam ? { webcamVideoPath: webcamPath } : {}),
+					createdAt,
+					recovered: true,
+				};
+				try {
+					await fs.writeFile(
+						path.join(RECORDINGS_DIR, manifestName),
+						JSON.stringify(session, null, 2),
+						"utf-8",
+					);
+				} catch {
+					continue;
+				}
+				sessions.push({ ...session, sizeBytes: stat.size });
+			}
+
 			sessions.sort((a, b) => b.createdAt - a.createdAt);
 			return { success: true, sessions };
 		} catch (error) {
@@ -2392,6 +2444,25 @@ export function registerIpcHandlers(
 				if (!webcamOk) {
 					session.webcamVideoPath = undefined;
 				}
+			}
+			if (session.recovered) {
+				// Crash-orphaned files miss the WebM Duration header (patched only at
+				// finalize). Repair once, then drop the flag so later opens skip the
+				// full-file read. Best-effort: an unrepairable file still opens.
+				if (session.screenVideoPath.endsWith(".webm")) {
+					await repairWebmDurationOnDisk(session.screenVideoPath);
+				}
+				if (session.webcamVideoPath?.endsWith(".webm")) {
+					await repairWebmDurationOnDisk(session.webcamVideoPath);
+				}
+				session.recovered = undefined;
+				const manifestPath = path.join(
+					RECORDINGS_DIR,
+					`${path.parse(session.screenVideoPath).name}${RECORDING_SESSION_SUFFIX}`,
+				);
+				await fs
+					.writeFile(manifestPath, JSON.stringify(session, null, 2), "utf-8")
+					.catch(() => undefined);
 			}
 			setCurrentRecordingSessionState(session);
 			currentProjectPath = null;
