@@ -51,7 +51,7 @@ import {
 	VideoExporter,
 } from "@/lib/exporter";
 import { computeFrameStepTime } from "@/lib/frameStep";
-import type { CursorCaptureMode, ProjectMedia } from "@/lib/recordingSession";
+import type { CursorCaptureMode, ProjectMedia, RecordingSession } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
 import {
 	getExportFolder,
@@ -622,6 +622,37 @@ export default function VideoEditor() {
 			currentProjectSnapshot !== lastSavedSnapshot,
 	);
 
+	// Loads a recording session (screen video + optional webcam sidecar) into a
+	// fresh editor state. Used on startup for the current session and by the
+	// empty-state dashboard to resume any past recording from its manifest.
+	const applyRecordingSession = useCallback(
+		async (session: RecordingSession) => {
+			const sourcePath = fromFileUrl(session.screenVideoPath);
+			setVideoSourcePath(sourcePath);
+			setVideoPath(toFileUrl(sourcePath));
+			setCurrentProjectPath(null);
+			setLastSavedSnapshot(null);
+			if (session.webcamVideoPath) {
+				const webcamSourcePath = fromFileUrl(session.webcamVideoPath);
+				const durationMs = await getVideoDurationMs(webcamSourcePath);
+				pushState({
+					webcamSegments: [
+						{
+							id: `webcam-${nextWebcamSegmentIdRef.current++}`,
+							videoPath: toFileUrl(webcamSourcePath),
+							sourcePath: webcamSourcePath,
+							startMs: webcamSyncOffsetMs,
+							durationMs,
+						},
+					],
+				});
+			} else {
+				pushState({ webcamSegments: [] });
+			}
+		},
+		[pushState, webcamSyncOffsetMs],
+	);
+
 	useEffect(() => {
 		async function loadInitialData() {
 			try {
@@ -638,27 +669,7 @@ export default function VideoEditor() {
 
 				const currentSessionResult = await window.electronAPI.getCurrentRecordingSession();
 				if (currentSessionResult.success && currentSessionResult.session) {
-					const session = currentSessionResult.session;
-					const sourcePath = fromFileUrl(session.screenVideoPath);
-					setVideoSourcePath(sourcePath);
-					setVideoPath(toFileUrl(sourcePath));
-					setCurrentProjectPath(null);
-					setLastSavedSnapshot(null);
-					if (session.webcamVideoPath) {
-						const webcamSourcePath = fromFileUrl(session.webcamVideoPath);
-						const durationMs = await getVideoDurationMs(webcamSourcePath);
-						pushState({
-							webcamSegments: [
-								{
-									id: `webcam-${nextWebcamSegmentIdRef.current++}`,
-									videoPath: toFileUrl(webcamSourcePath),
-									sourcePath: webcamSourcePath,
-									startMs: webcamSyncOffsetMs,
-									durationMs,
-								},
-							],
-						});
-					}
+					await applyRecordingSession(currentSessionResult.session);
 					return;
 				}
 
@@ -682,7 +693,7 @@ export default function VideoEditor() {
 		}
 
 		loadInitialData();
-	}, [applyLoadedProject, webcamSyncOffsetMs, pushState]);
+	}, [applyLoadedProject, applyRecordingSession]);
 
 	// Avoid overwriting saved prefs with defaults before they've loaded.
 	const [prefsHydrated, setPrefsHydrated] = useState(false);
@@ -2905,6 +2916,7 @@ export default function VideoEditor() {
 								toast.error(t("project.invalidFormat"));
 							}
 						}}
+						onRecordingSessionOpened={applyRecordingSession}
 					/>
 				</div>
 			)}

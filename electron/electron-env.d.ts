@@ -205,6 +205,18 @@ interface Window {
 			success: boolean;
 			session?: import("../src/lib/recordingSession").RecordingSession;
 		}>;
+		listRecordingSessions: () => Promise<{
+			success: boolean;
+			sessions: Array<
+				import("../src/lib/recordingSession").RecordingSession & { sizeBytes: number }
+			>;
+			error?: string;
+		}>;
+		openRecordingSession: (screenVideoPath: string) => Promise<{
+			success: boolean;
+			session?: import("../src/lib/recordingSession").RecordingSession;
+			error?: string;
+		}>;
 		readBinaryFile: (filePath: string) => Promise<{
 			success: boolean;
 			data?: ArrayBuffer;

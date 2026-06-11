@@ -76,6 +76,11 @@
 			"unsupportedFormatMessage": "Сюда можно перетаскивать только файлы проекта .openscreen. Для импорта видео используйте кнопку «Импортировать видеофайл...».",
 			"couldNotOpenTitle": "Не удалось открыть файл",
 			"couldNotOpenMessage": "Не удалось открыть файл проекта. Видео, на которое он ссылается, возможно, было перемещено или удалено."
+		},
+		"recentRecordings": {
+			"openFailed": "Could not open this recording. Its files may have been moved or deleted.",
+			"title": "Recent recordings",
+			"webcamBadge": "Includes webcam"
 		}
 	}
 }

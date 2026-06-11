@@ -76,6 +76,11 @@
 			"unsupportedFormatMessage": "ここにドロップできるのは .openscreen プロジェクトファイルのみです。動画をインポートするには「動画ファイルをインポート...」ボタンをご使用ください。",
 			"couldNotOpenTitle": "ファイルを開けませんでした",
 			"couldNotOpenMessage": "プロジェクトファイルを開けませんでした。参照している動画が移動または削除された可能性があります。"
+		},
+		"recentRecordings": {
+			"openFailed": "Could not open this recording. Its files may have been moved or deleted.",
+			"title": "Recent recordings",
+			"webcamBadge": "Includes webcam"
 		}
 	}
 }

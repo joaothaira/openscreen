@@ -76,6 +76,11 @@
 			"unsupportedFormatMessage": "Chỉ có thể thả các tệp dự án .openscreen vào đây. Để nhập video, hãy sử dụng nút \"Nhập tệp video...\" thay thế.",
 			"couldNotOpenTitle": "Không thể mở tệp",
 			"couldNotOpenMessage": "Không thể mở tệp dự án. Video mà nó tham chiếu có thể đã bị di chuyển hoặc xóa."
+		},
+		"recentRecordings": {
+			"openFailed": "Could not open this recording. Its files may have been moved or deleted.",
+			"title": "Recent recordings",
+			"webcamBadge": "Includes webcam"
 		}
 	}
 }

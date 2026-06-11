@@ -1,7 +1,9 @@
-import { AlertCircle, Film, FolderOpen, Upload, X } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { AlertCircle, Film, FolderOpen, Upload, Video, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useScopedT } from "@/contexts/I18nContext";
+import type { RecordingSession } from "@/lib/recordingSession";
 import { getProjectFolder, parentDirectoryOf, saveUserPreferences } from "@/lib/userPreferences";
 import { nativeBridgeClient } from "@/native";
 
@@ -9,14 +11,60 @@ interface EditorEmptyStateProps {
 	onVideoImported: (videoPath: string) => void;
 	/** Called with the loaded project data; handles both button click and drag-drop */
 	onProjectOpened: (project: unknown, path: string | null) => void;
+	/** Called after a past recording's session is reopened from its manifest. */
+	onRecordingSessionOpened: (session: RecordingSession) => void | Promise<void>;
+}
+
+type RecentRecording = RecordingSession & { sizeBytes: number };
+
+function formatRecordingSize(sizeBytes: number) {
+	const mb = sizeBytes / (1024 * 1024);
+	return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.max(1, Math.round(mb))} MB`;
 }
 
 type DropError = "unsupported-format" | "load-failed" | null;
 
-export function EditorEmptyState({ onVideoImported, onProjectOpened }: EditorEmptyStateProps) {
+export function EditorEmptyState({
+	onVideoImported,
+	onProjectOpened,
+	onRecordingSessionOpened,
+}: EditorEmptyStateProps) {
 	const te = useScopedT("editor");
 	const tc = useScopedT("common");
 	const [isDraggingOver, setIsDraggingOver] = useState(false);
+	const [recentRecordings, setRecentRecordings] = useState<RecentRecording[]>([]);
+
+	useEffect(() => {
+		let cancelled = false;
+		window.electronAPI
+			.listRecordingSessions()
+			.then((result) => {
+				if (!cancelled && result.success) {
+					setRecentRecordings(result.sessions);
+				}
+			})
+			.catch(() => undefined);
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	const handleOpenRecording = useCallback(
+		async (recording: RecentRecording) => {
+			const result = await window.electronAPI.openRecordingSession(recording.screenVideoPath);
+			if (!result.success || !result.session) {
+				toast.error(result.error ?? te("emptyState.recentRecordings.openFailed"));
+				// The manifest or video may have gone away since listing; refresh.
+				const refreshed = await window.electronAPI.listRecordingSessions().catch(() => null);
+				if (refreshed?.success) {
+					setRecentRecordings(refreshed.sessions);
+				}
+				return;
+			}
+			await onRecordingSessionOpened(result.session);
+		},
+		[onRecordingSessionOpened, te],
+	);
 	const [dropError, setDropError] = useState<DropError>(null);
 	// Freeze the last non-null error type so dialog content doesn't snap to the else-branch
 	// during the closing animation (same pattern as UnsavedChangesDialog).
@@ -195,6 +243,40 @@ export function EditorEmptyState({ onVideoImported, onProjectOpened }: EditorEmp
 						{te("emptyState.loadProjectButton")}
 					</button>
 				</div>
+
+				{recentRecordings.length > 0 && (
+					<div className="flex w-full max-w-xs flex-col gap-2">
+						<p className="text-left text-xs font-medium uppercase tracking-wide text-slate-600">
+							{te("emptyState.recentRecordings.title")}
+						</p>
+						<div className="flex max-h-44 flex-col gap-1.5 overflow-y-auto custom-scrollbar pr-1">
+							{recentRecordings.map((recording) => (
+								<button
+									key={recording.screenVideoPath}
+									type="button"
+									onClick={() => handleOpenRecording(recording)}
+									className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+								>
+									<Film className="h-3.5 w-3.5 flex-shrink-0 text-slate-500" />
+									<span className="min-w-0 flex-1 truncate text-xs text-slate-300">
+										{new Date(recording.createdAt).toLocaleString()}
+									</span>
+									{recording.webcamVideoPath && (
+										<span
+											className="flex items-center gap-1 rounded bg-[#6366f1]/15 px-1.5 py-0.5 text-[10px] text-[#a5b4fc]"
+											title={te("emptyState.recentRecordings.webcamBadge")}
+										>
+											<Video className="h-3 w-3" />
+										</span>
+									)}
+									<span className="flex-shrink-0 text-[10px] text-slate-600">
+										{formatRecordingSize(recording.sizeBytes)}
+									</span>
+								</button>
+							))}
+						</div>
+					</div>
+				)}
 
 				<div className="flex flex-col items-center gap-2">
 					<p className="text-xs text-slate-600">{te("emptyState.supportedFormats")}</p>
