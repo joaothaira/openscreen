@@ -76,6 +76,11 @@
 			"unsupportedFormatMessage": "Seuls les fichiers .openscreen peuvent être déposés ici. Pour importer une vidéo, utilisez plutôt le bouton \"Importer un fichier vidéo...\".",
 			"couldNotOpenTitle": "Impossible d'ouvrir le fichier",
 			"couldNotOpenMessage": "Le fichier de projet n'a pas pu être ouvert. La vidéo qu'il référence a peut-être été déplacée ou supprimée."
+		},
+		"recentRecordings": {
+			"openFailed": "Could not open this recording. Its files may have been moved or deleted.",
+			"title": "Recent recordings",
+			"webcamBadge": "Includes webcam"
 		}
 	}
 }

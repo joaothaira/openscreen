@@ -2332,6 +2332,76 @@ export function registerIpcHandlers(
 		}
 	});
 
+	// Past recordings are resumable through their on-disk *.session.json manifests.
+	// Until now those were write-only — only the in-memory "current" session could
+	// be reopened, so any take that wasn't saved as a .openscreen project was
+	// stranded once another recording replaced it.
+	ipcMain.handle("list-recording-sessions", async () => {
+		try {
+			const files = await fs.readdir(RECORDINGS_DIR);
+			const manifests = files.filter((file) => file.endsWith(RECORDING_SESSION_SUFFIX));
+			const sessions: Array<RecordingSession & { sizeBytes: number }> = [];
+			for (const name of manifests) {
+				try {
+					const content = await fs.readFile(path.join(RECORDINGS_DIR, name), "utf-8");
+					const session = normalizeRecordingSession(JSON.parse(content));
+					if (!session) continue;
+					if (!isPathWithinDir(path.resolve(session.screenVideoPath), RECORDINGS_DIR)) continue;
+					// Stale manifest (video deleted) — skip rather than offer a dead entry.
+					const stat = await fs.stat(session.screenVideoPath).catch(() => null);
+					if (!stat) continue;
+					if (session.webcamVideoPath) {
+						// Keep the session but drop a missing webcam sidecar.
+						const webcamOk = await fs
+							.access(session.webcamVideoPath, fsConstants.R_OK)
+							.then(() => true)
+							.catch(() => false);
+						if (!webcamOk) {
+							session.webcamVideoPath = undefined;
+						}
+					}
+					sessions.push({ ...session, sizeBytes: stat.size });
+				} catch {
+					// Malformed manifest — skip it.
+				}
+			}
+			sessions.sort((a, b) => b.createdAt - a.createdAt);
+			return { success: true, sessions };
+		} catch (error) {
+			console.error("Failed to list recording sessions:", error);
+			return { success: false, error: String(error), sessions: [] };
+		}
+	});
+
+	ipcMain.handle("open-recording-session", async (_, screenVideoPath: string) => {
+		try {
+			const normalized = normalizeVideoSourcePath(screenVideoPath);
+			if (!normalized || !isPathWithinDir(path.resolve(normalized), RECORDINGS_DIR)) {
+				return { success: false, error: "Recording is outside the recordings folder." };
+			}
+			await fs.access(normalized, fsConstants.R_OK);
+			const session = await loadRecordedSessionForVideoPath(normalized);
+			if (!session) {
+				return { success: false, error: "Recording session manifest not found." };
+			}
+			if (session.webcamVideoPath) {
+				const webcamOk = await fs
+					.access(session.webcamVideoPath, fsConstants.R_OK)
+					.then(() => true)
+					.catch(() => false);
+				if (!webcamOk) {
+					session.webcamVideoPath = undefined;
+				}
+			}
+			setCurrentRecordingSessionState(session);
+			currentProjectPath = null;
+			return { success: true, session };
+		} catch (error) {
+			console.error("Failed to open recording session:", error);
+			return { success: false, error: String(error) };
+		}
+	});
+
 	ipcMain.handle("get-recorded-video-path", async () => {
 		try {
 			if (currentRecordingSession?.screenVideoPath) {

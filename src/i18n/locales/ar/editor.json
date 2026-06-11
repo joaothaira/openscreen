@@ -76,6 +76,11 @@
 			"unsupportedFormatMessage": "يمكن إسقاط ملفات مشروع .openscreen فقط هنا. لاستيراد مقطع فيديو، استخدم زر \"استيراد ملف فيديو...\" بدلاً من ذلك.",
 			"couldNotOpenTitle": "تعذّر فتح الملف",
 			"couldNotOpenMessage": "تعذّر فتح ملف المشروع. ربما تم نقل الفيديو المرجعي أو حذفه."
+		},
+		"recentRecordings": {
+			"openFailed": "Could not open this recording. Its files may have been moved or deleted.",
+			"title": "Recent recordings",
+			"webcamBadge": "Includes webcam"
 		}
 	}
 }

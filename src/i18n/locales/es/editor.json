@@ -76,6 +76,11 @@
 			"unsupportedFormatMessage": "Solo se pueden soltar aquí archivos de proyecto .openscreen. Para importar un video, usa el botón \"Importar archivo de video...\" en su lugar.",
 			"couldNotOpenTitle": "No se pudo abrir el archivo",
 			"couldNotOpenMessage": "No se pudo abrir el archivo de proyecto. El video al que hace referencia puede haber sido movido o eliminado."
+		},
+		"recentRecordings": {
+			"openFailed": "Could not open this recording. Its files may have been moved or deleted.",
+			"title": "Recent recordings",
+			"webcamBadge": "Includes webcam"
 		}
 	}
 }
