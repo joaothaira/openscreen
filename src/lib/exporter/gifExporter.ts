@@ -12,6 +12,7 @@ import type {
 	WebcamSegment,
 	ZoomRegion,
 } from "@/components/video-editor/types";
+import { BackgroundLoadError } from "@/lib/wallpaper";
 import type { CursorRecordingData } from "@/native/contracts";
 import { FrameRenderer } from "./frameRenderer";
 import { SegmentedWebcamSource } from "./segmentedWebcamSource";
@@ -324,6 +325,9 @@ export class GifExporter {
 
 			return { success: true, blob };
 		} catch (error) {
+			if (error instanceof BackgroundLoadError) {
+				throw error;
+			}
 			console.error("GIF Export error:", error);
 			return {
 				success: false,

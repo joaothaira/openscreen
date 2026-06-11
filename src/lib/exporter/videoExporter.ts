@@ -11,6 +11,7 @@ import type {
 	WebcamSegment,
 	ZoomRegion,
 } from "@/components/video-editor/types";
+import { BackgroundLoadError } from "@/lib/wallpaper";
 import type { CursorRecordingData } from "@/native/contracts";
 import { AudioProcessor } from "./audioEncoder";
 import { FrameRenderer } from "./frameRenderer";
@@ -181,6 +182,10 @@ export class VideoExporter {
 
 				if (this.cancelled) {
 					return { success: false, error: "Export cancelled" };
+				}
+
+				if (normalizedError instanceof BackgroundLoadError) {
+					throw normalizedError;
 				}
 
 				if (encoderPreferences.length > 1) {
