@@ -480,52 +480,49 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					// mid-stream write error) even when streaming, where it resolves empty.
 					const webcamBlob = await activeWebcamRecorder.recordedBlobPromise.catch(() => null);
 					const webcamStreamed = activeWebcamRecorder.isStreaming();
-					const screenRead = await window.electronAPI.readBinaryFile(nativeScreenPath);
 					const hasWebcamData = webcamStreamed || (webcamBlob != null && webcamBlob.size > 0);
-					const canStore = hasWebcamData && screenRead.success && !!screenRead.data;
-					// Once store-recorded-session is called it owns the webcam's disk stream
-					// (it finalizes the file). Until then, any opened stream is ours to drop.
-					// store-recorded-session finalizes (and thus owns) the webcam disk stream
-					// only once it returns success. Mark ownership after that resolves, and
-					// discard in `finally` so a throw in fixWebmDuration/storeRecordedSession
+					// attach-webcam-to-screen-recording finalizes (and thus owns) the webcam
+					// disk stream only once it returns success. Mark ownership after that
+					// resolves, and discard in `finally` so a throw in fixWebmDuration/attach
 					// still drops the partial sidecar instead of leaking it.
-					let storeOwnsWebcam = false;
+					let attachOwnsWebcam = false;
 					try {
-						if (canStore && screenRead.data) {
-							const nativeScreenFileName =
-								nativeScreenPath.split(/[\\/]/).pop() ??
-								`${RECORDING_FILE_PREFIX}${activeNativeRecording.recordingId}.mp4`;
+						if (hasWebcamData) {
 							const webcamFileName =
 								activeNativeRecording.webcamFileName ??
 								`${RECORDING_FILE_PREFIX}${activeNativeRecording.recordingId}${WEBCAM_FILE_SUFFIX}${VIDEO_FILE_EXTENSION}`;
 							// Streamed webcam bytes are already on disk; send an empty buffer and let
-							// the main process patch the WebM duration there (mirrors the screen path).
+							// the main process patch the WebM duration there. The screen recording is
+							// already on disk and never round-trips through the renderer — the main
+							// process attaches the webcam sidecar to it directly.
 							const webcamVideoData = webcamStreamed
 								? new ArrayBuffer(0)
 								: await (await fixWebmDuration(webcamBlob as Blob, duration)).arrayBuffer();
-							const stored = await window.electronAPI.storeRecordedSession({
-								screen: {
-									videoData: screenRead.data,
-									fileName: nativeScreenFileName,
-								},
+							const attached = await window.electronAPI.attachWebcamToScreenRecording({
+								screenVideoPath: nativeScreenPath,
+								recordingId: activeNativeRecording.recordingId,
 								webcam: {
 									videoData: webcamVideoData,
 									fileName: webcamFileName,
 								},
-								createdAt: activeNativeRecording.recordingId,
 								cursorCaptureMode,
 								durationMs: duration,
 							});
-							storeOwnsWebcam = stored.success;
-							if (stored.success && stored.session) {
-								storedSession = stored.session;
+							attachOwnsWebcam = attached.success;
+							if (attached.success && attached.session) {
+								storedSession = attached.session;
+							} else if (!attached.success) {
+								// Screen-only session from the stop handler still stands; surface
+								// the webcam loss instead of failing the whole recording.
+								console.error("Failed to attach webcam recording:", attached.error);
+								toast.error(attached.error ?? "Failed to store webcam recording");
 							}
 						}
 					} finally {
-						if (!storeOwnsWebcam) {
-							// Webcam never reached a successful store (no usable data, missing screen
-							// file, a mid-stream write error, or store threw/returned failure). Drop
-							// any partial file/stream. No-op for an in-memory recorder.
+						if (!attachOwnsWebcam) {
+							// Webcam never reached a successful attach (no usable data, a mid-stream
+							// write error, or attach threw/returned failure). Drop any partial
+							// file/stream. No-op for an in-memory recorder.
 							await activeWebcamRecorder.discard().catch(() => undefined);
 						}
 					}
@@ -633,7 +630,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				}
 
 				if (webcamAsset && result.path) {
-					const attachResult = await window.electronAPI.attachNativeMacWebcamRecording({
+					const attachResult = await window.electronAPI.attachWebcamToScreenRecording({
 						screenVideoPath: result.path,
 						recordingId: activeNativeRecording.recordingId,
 						webcam: webcamAsset,
