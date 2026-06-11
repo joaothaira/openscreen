@@ -370,7 +370,6 @@ export default function VideoEditor() {
 	const [cursorTheme, setCursorTheme] = useState(DEFAULT_CURSOR_SETTINGS.theme);
 	const [nativePlatform, setNativePlatform] = useState<NativePlatform | null>(null);
 	const [recordingCursorCaptureMode] = useState<CursorCaptureMode | null>(null);
-	const [isGeneratingSubtitles, setIsGeneratingSubtitles] = useState(false);
 	const [webcamSyncOffsetMs, setWebcamSyncOffsetMs] = useState<number>(() => {
 		const stored = localStorage.getItem("openscreen:webcamSyncOffsetMs");
 		const parsed = stored ? parseInt(stored, 10) : 0;
@@ -2143,26 +2142,20 @@ export default function VideoEditor() {
 		}
 	}, [selectedSubtitleId, subtitleRegions]);
 
-	const handleGenerateSubtitles = useCallback(async () => {
-		if (!videoSourcePath) {
-			toast.error("No video loaded");
+	// The Electron-side subtitle script is retired; the sidebar's Auto-Generate
+	// routes to the in-app caption pipeline preset to styled-subtitle output.
+	const handleGenerateSubtitles = useCallback(() => {
+		if (!videoPath) {
+			toast.error(t("errors.noVideoLoaded"));
 			return;
 		}
-		setIsGeneratingSubtitles(true);
-		try {
-			const result = await window.electronAPI.generateSubtitles(videoSourcePath);
-			if (result.success && result.subtitles) {
-				pushState({ subtitleRegions: result.subtitles, showSubtitles: true });
-				toast.success(`Generated ${result.subtitles.length} subtitles`);
-			} else {
-				toast.error(result.error ?? "Subtitle generation failed");
-			}
-		} catch (err) {
-			toast.error("Subtitle generation failed: " + String(err));
-		} finally {
-			setIsGeneratingSubtitles(false);
+		if (isAutoCaptioningRef.current) {
+			toast.error(t("autoCaptions.busy"));
+			return;
 		}
-	}, [videoSourcePath, pushState]);
+		setCaptionOutput("subtitles");
+		setShowAutoCaptionsDialog(true);
+	}, [videoPath, t]);
 
 	const handleClearSubtitles = useCallback(() => {
 		pushState({ subtitleRegions: [] });
@@ -3514,7 +3507,7 @@ export default function VideoEditor() {
 												onSubtitleTextChange={handleSubtitleTextChange}
 												selectedSubtitleId={selectedSubtitleId}
 												onGenerateSubtitles={handleGenerateSubtitles}
-												isGeneratingSubtitles={isGeneratingSubtitles}
+												isGeneratingSubtitles={isAutoCaptioning}
 												onClearSubtitles={handleClearSubtitles}
 											/>
 										</TabsContent>

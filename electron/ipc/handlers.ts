@@ -1,4 +1,4 @@
-import { type ChildProcessWithoutNullStreams, execFile, spawn } from "node:child_process";
+import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
@@ -3072,65 +3072,6 @@ export function registerIpcHandlers(
 			}
 		},
 	);
-
-	ipcMain.handle("generate-subtitles", async (_, videoPath: string, lang = "pt") => {
-		const scriptPath = path.join(app.getAppPath(), "scripts", "extract-subtitles.mjs");
-		try {
-			await fs.access(scriptPath);
-		} catch {
-			return { success: false, error: "extract-subtitles.mjs script not found" };
-		}
-
-		const nodeBin = process.env.NODE_BINARY || (process.platform === "win32" ? "node.exe" : "node");
-
-		return new Promise<{
-			success: boolean;
-			subtitles?: Array<{ id: string; startMs: number; endMs: number; text: string }>;
-			error?: string;
-		}>((resolve) => {
-			const child = execFile(
-				nodeBin,
-				[scriptPath, videoPath, "--json", "--lang", lang],
-				{
-					maxBuffer: 10 * 1024 * 1024,
-					timeout: 300_000,
-					cwd: app.getAppPath(),
-				},
-				(error, stdout, stderr) => {
-					if (error) {
-						console.error("Subtitle generation error:", stderr || error.message);
-						resolve({ success: false, error: error.message });
-						return;
-					}
-					try {
-						const jsonStart = stdout.indexOf("{");
-						const jsonEnd = stdout.lastIndexOf("}");
-						if (jsonStart === -1 || jsonEnd === -1) {
-							resolve({ success: false, error: "No JSON output from script" });
-							return;
-						}
-						const config = JSON.parse(stdout.slice(jsonStart, jsonEnd + 1));
-						const items = config?.subtitles?.items ?? [];
-						const FPS = 30;
-						const subtitles = items.map(
-							(item: { text: string; startFrame: number; endFrame: number }, idx: number) => ({
-								id: `sub-${idx + 1}`,
-								startMs: Math.round((item.startFrame / FPS) * 1000),
-								endMs: Math.round((item.endFrame / FPS) * 1000),
-								text: item.text,
-							}),
-						);
-						resolve({ success: true, subtitles });
-					} catch (parseError) {
-						resolve({ success: false, error: `Failed to parse output: ${String(parseError)}` });
-					}
-				},
-			);
-			child.stderr?.on("data", (data) => {
-				console.log("[subtitle-gen]", String(data).trim());
-			});
-		});
-	});
 
 	registerNativeBridgeHandlers({
 		getPlatform: () => process.platform,

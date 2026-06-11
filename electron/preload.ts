@@ -247,9 +247,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	}) => {
 		return ipcRenderer.invoke("save-diagnostic", payload);
 	},
-	generateSubtitles: (videoPath: string, lang?: string) => {
-		return ipcRenderer.invoke("generate-subtitles", videoPath, lang ?? "pt");
-	},
 	setMicrophoneExpanded: (expanded: boolean) => {
 		ipcRenderer.send("hud:setMicrophoneExpanded", expanded);
 	},
