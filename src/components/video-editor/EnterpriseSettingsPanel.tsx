@@ -42,8 +42,8 @@ import { GIF_FRAME_RATES, GIF_SIZE_PRESETS } from "@/lib/exporter";
 import { cn } from "@/lib/utils";
 import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import { getTestId } from "@/utils/getTestId";
-import { EnterpriseAnnotationSettingsPanel } from "./EnterpriseAnnotationSettingsPanel";
 import { CropControl } from "./CropControl";
+import { EnterpriseAnnotationSettingsPanel } from "./EnterpriseAnnotationSettingsPanel";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 import type {
 	AnnotationRegion,
@@ -187,8 +187,6 @@ interface EnterpriseSettingsPanelProps {
 	isGeneratingSubtitles?: boolean;
 	onClearSubtitles?: () => void;
 }
-
-
 
 const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
 	{ depth: 1, label: "1.25×" },
@@ -721,10 +719,7 @@ export function EnterpriseSettingsPanel({
 					defaultValue={hasWebcam ? ["layout", "effects", "background"] : ["effects", "background"]}
 					className="space-y-1"
 				>
-					<AccordionItem
-						value="layout"
-						className="border-white/5 rounded-xl bg-white/[0.02] px-3"
-					>
+					<AccordionItem value="layout" className="border-white/5 rounded-xl bg-white/[0.02] px-3">
 						<AccordionTrigger className="py-2.5 hover:no-underline">
 							<div className="flex items-center gap-2">
 								<Sparkles className="w-4 h-4 text-[#34B27B]" />
@@ -754,7 +749,6 @@ export function EnterpriseSettingsPanel({
 											<Film className="w-3 h-3" />
 											{t("layout.changeCameraVideo")}
 										</Button>
-
 									</div>
 									<div className="flex gap-1.5 mb-2">
 										<Button
@@ -849,7 +843,9 @@ export function EnterpriseSettingsPanel({
 										<div className="mt-2 pt-2 border-t border-white/5">
 											<div className="flex items-center justify-between mb-1.5">
 												<span className="text-[10px] font-medium text-slate-300">Focus zoom</span>
-												<span className="text-[10px] text-slate-500">{Math.round(webcamFocusZoom * 100)}%</span>
+												<span className="text-[10px] text-slate-500">
+													{Math.round(webcamFocusZoom * 100)}%
+												</span>
 											</div>
 											<Slider
 												min={0}
@@ -1006,12 +1002,66 @@ export function EnterpriseSettingsPanel({
 																		: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400",
 																)}
 															>
-																<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-																	{shape.value === "rectangle" && <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.5" />}
-																	{shape.value === "circle" && <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" />}
-																	{shape.value === "square" && <rect x="2" y="2" width="12" height="12" rx="1" stroke="currentColor" strokeWidth="1.5" />}
-																	{shape.value === "rounded" && <rect x="1" y="3" width="14" height="10" rx="5" stroke="currentColor" strokeWidth="1.5" />}
-																	{shape.value === "portrait" && <rect x="4.5" y="1" width="7" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />}
+																<svg
+																	width="16"
+																	height="16"
+																	viewBox="0 0 16 16"
+																	fill="none"
+																	xmlns="http://www.w3.org/2000/svg"
+																>
+																	{shape.value === "rectangle" && (
+																		<rect
+																			x="1"
+																			y="3"
+																			width="14"
+																			height="10"
+																			rx="2"
+																			stroke="currentColor"
+																			strokeWidth="1.5"
+																		/>
+																	)}
+																	{shape.value === "circle" && (
+																		<circle
+																			cx="8"
+																			cy="8"
+																			r="6.5"
+																			stroke="currentColor"
+																			strokeWidth="1.5"
+																		/>
+																	)}
+																	{shape.value === "square" && (
+																		<rect
+																			x="2"
+																			y="2"
+																			width="12"
+																			height="12"
+																			rx="1"
+																			stroke="currentColor"
+																			strokeWidth="1.5"
+																		/>
+																	)}
+																	{shape.value === "rounded" && (
+																		<rect
+																			x="1"
+																			y="3"
+																			width="14"
+																			height="10"
+																			rx="5"
+																			stroke="currentColor"
+																			strokeWidth="1.5"
+																		/>
+																	)}
+																	{shape.value === "portrait" && (
+																		<rect
+																			x="4.5"
+																			y="1"
+																			width="7"
+																			height="14"
+																			rx="2"
+																			stroke="currentColor"
+																			strokeWidth="1.5"
+																		/>
+																	)}
 																</svg>
 																<span className="text-[8px] leading-none">{shape.label}</span>
 															</button>
@@ -1384,10 +1434,7 @@ export function EnterpriseSettingsPanel({
 										{/* Show/hide toggle */}
 										<div className="flex items-center justify-between">
 											<span className="text-xs text-slate-300">Show subtitles</span>
-											<Switch
-												checked={showSubtitles}
-												onCheckedChange={onShowSubtitlesChange}
-											/>
+											<Switch checked={showSubtitles} onCheckedChange={onShowSubtitlesChange} />
 										</div>
 
 										{/* Template */}
@@ -1395,7 +1442,11 @@ export function EnterpriseSettingsPanel({
 											<span className="text-xs text-slate-400 block mb-1.5">Template</span>
 											<Select
 												value={subtitleStyle?.template ?? "classic"}
-												onValueChange={(v) => onSubtitleStyleChange?.({ template: v as import("./types").SubtitleTemplate })}
+												onValueChange={(v) =>
+													onSubtitleStyleChange?.({
+														template: v as import("./types").SubtitleTemplate,
+													})
+												}
 											>
 												<SelectTrigger className="h-7 text-xs bg-white/5 border-white/10 hover:bg-white/10 text-slate-300">
 													<SelectValue />
@@ -1414,7 +1465,9 @@ export function EnterpriseSettingsPanel({
 										<div>
 											<div className="flex items-center justify-between mb-1.5">
 												<span className="text-xs text-slate-400">Font size</span>
-												<span className="text-[10px] text-slate-500">{subtitleStyle?.fontSize ?? 32}px</span>
+												<span className="text-[10px] text-slate-500">
+													{subtitleStyle?.fontSize ?? 32}px
+												</span>
 											</div>
 											<Slider
 												min={12}
@@ -1451,7 +1504,9 @@ export function EnterpriseSettingsPanel({
 											</div>
 											<div className="flex items-center justify-between mb-1.5">
 												<span className="text-xs text-slate-400">Offset</span>
-												<span className="text-[10px] text-slate-500">{subtitleStyle?.bottomOffset ?? 8}%</span>
+												<span className="text-[10px] text-slate-500">
+													{subtitleStyle?.bottomOffset ?? 8}%
+												</span>
 											</div>
 											<Slider
 												min={0}
@@ -1477,7 +1532,10 @@ export function EnterpriseSettingsPanel({
 													const ss = String(Math.floor(startSec % 60)).padStart(2, "0");
 													const ts = `${mm}:${ss}`;
 													return (
-														<div key={sub.id} className="group rounded-lg bg-white/[0.03] border border-white/5 p-2">
+														<div
+															key={sub.id}
+															className="group rounded-lg bg-white/[0.03] border border-white/5 p-2"
+														>
 															<div className="text-[10px] text-slate-600 mb-1 font-mono">{ts}</div>
 															<textarea
 																value={sub.text}

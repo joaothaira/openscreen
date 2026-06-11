@@ -36,9 +36,7 @@ export function WebcamFocusHelp() {
 				<div className="mt-4 space-y-8">
 					{/* Explanation */}
 					<div className="bg-white/5 rounded-lg p-4 border border-white/5">
-						<p className="text-slate-300 leading-relaxed">
-							{t("webcamFocusTutorial.explanation")}
-						</p>
+						<p className="text-slate-300 leading-relaxed">{t("webcamFocusTutorial.explanation")}</p>
 					</div>
 
 					{/* Visual Illustration */}
@@ -84,7 +82,10 @@ export function WebcamFocusHelp() {
 							</div>
 							{/* Inside region */}
 							<div className="bg-[#000] rounded-lg border border-[#6366f1]/40 h-28 relative overflow-hidden">
-								<div className="absolute inset-0 bg-slate-900/80" style={{ filter: "blur(3px) brightness(0.5)" }} />
+								<div
+									className="absolute inset-0 bg-slate-900/80"
+									style={{ filter: "blur(3px) brightness(0.5)" }}
+								/>
 								<div className="absolute inset-0 flex items-center justify-center">
 									<div className="w-16 h-24 bg-black rounded border border-[#6366f1]/60 flex items-center justify-center">
 										<Video className="w-5 h-5 text-[#6366f1]" />
@@ -103,17 +104,13 @@ export function WebcamFocusHelp() {
 							<div className="text-[#6366f1] font-bold mb-1">
 								{t("webcamFocusTutorial.step1Title")}
 							</div>
-							<p className="text-xs text-slate-400">
-								{t("webcamFocusTutorial.step1Description")}
-							</p>
+							<p className="text-xs text-slate-400">{t("webcamFocusTutorial.step1Description")}</p>
 						</div>
 						<div className="p-3 rounded bg-white/5 border border-white/5">
 							<div className="text-[#6366f1] font-bold mb-1">
 								{t("webcamFocusTutorial.step2Title")}
 							</div>
-							<p className="text-xs text-slate-400">
-								{t("webcamFocusTutorial.step2Description")}
-							</p>
+							<p className="text-xs text-slate-400">{t("webcamFocusTutorial.step2Description")}</p>
 						</div>
 					</div>
 				</div>

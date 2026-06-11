@@ -6,7 +6,11 @@
 		"addAnnotation": "添加标注 (A)",
 		"addSpeed": "添加速度 (S)",
 		"addBlur": "添加模糊 (B)",
-		"addWebcamFocus": "添加摄像头聚焦"
+		"addWebcamFocus": "添加摄像头聚焦",
+		"autoFocusAllOff": "Auto-Focus all zooms (camera follows the cursor)",
+		"autoFocusAllOn": "Auto-Focus on for all zooms — click to switch all to manual",
+		"autoZoomOff": "Auto zoom suggestions off — click to suggest zooms from cursor",
+		"autoZoomOn": "Auto zoom suggestions on — click to remove suggested zooms"
 	},
 	"hints": {
 		"pressZoom": "按 Z 添加缩放",

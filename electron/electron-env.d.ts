@@ -155,6 +155,7 @@ interface Window {
 			recordingId: number;
 			webcam: import("../src/lib/recordingSession").RecordedVideoAssetInput;
 			cursorCaptureMode?: import("../src/lib/recordingSession").CursorCaptureMode;
+			durationMs?: number;
 		}) => Promise<{
 			success: boolean;
 			path?: string;
@@ -229,7 +230,7 @@ interface Window {
 			canceled?: boolean;
 			error?: string;
 		}>;
-		loadProjectFile: () => Promise<{
+		loadProjectFile: (projectFolder?: string) => Promise<{
 			success: boolean;
 			path?: string;
 			project?: unknown;
@@ -275,6 +276,7 @@ interface Window {
 		hudOverlayClose: () => void;
 		setHudOverlayIgnoreMouseEvents: (ignore: boolean) => void;
 		moveHudOverlayBy: (deltaX: number, deltaY: number) => void;
+		setHudOverlaySize: (width: number, height: number) => void;
 		showCountdownOverlay: (value: number, runId: number) => Promise<void>;
 		setCountdownOverlayValue: (value: number, runId: number) => Promise<void>;
 		hideCountdownOverlay: (runId: number) => Promise<void>;

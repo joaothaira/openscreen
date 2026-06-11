@@ -8,7 +8,8 @@
 			"title": "Chế độ lấy nét",
 			"manual": "Thủ công",
 			"auto": "Tự động",
-			"autoDescription": "Máy ảnh đi theo vị trí con trỏ đã ghi"
+			"autoDescription": "Máy ảnh đi theo vị trí con trỏ đã ghi",
+			"lockedDisclaimer": "Controlled by the global Auto-Focus toggle in the timeline. Turn it off to set focus mode per zoom."
 		},
 		"customScale": "Thu phóng tùy chỉnh",
 		"position": {
@@ -46,6 +47,9 @@
 		"webcamShape": "Hình dạng máy ảnh",
 		"webcamSize": "Kích thước Webcam",
 		"noWebcam": "Không có webcam",
+		"mirrorWebcam": "Lật webcam",
+		"reactiveWebcam": "Thu nhỏ khi phóng to",
+		"reactiveWebcamDescription": "Camera thu nhỏ mượt mà khi video được phóng to, để không che khuất.",
 		"webcamSizeSmall": "S",
 		"webcamSizeMedium": "M",
 		"webcamSizeLarge": "L",
@@ -215,12 +219,15 @@
 		"errorLoadFailed": "Không thể tải phông chữ. Vui lòng xác minh URL Google Fonts là chính xác."
 	},
 	"cursor": {
+		"theme": "Kiểu con trỏ",
+		"themeDefault": "Mặc định",
 		"show": "Hiện con trỏ",
 		"size": "Kích thước",
 		"smoothing": "Làm mượt",
 		"motionBlur": "Làm mờ chuyển động",
 		"clickBounce": "Nảy khi nhấp",
-		"clipToBounds": "Cắt theo khung"
+		"clipToBounds": "Cắt theo khung",
+		"clipToBoundsDescription": "Keeps the cursor inside the video frame. Turn off to let the cursor extend past the edges - useful when zoomed in or panned."
 	},
 	"language": {
 		"title": "Ngôn ngữ"

@@ -369,9 +369,7 @@ export function EnterpriseAnnotationSettingsPanel({
 							{/* Weight & Stretch */}
 							<div className="grid grid-cols-2 gap-2">
 								<div>
-									<label className="text-xs font-medium text-slate-200 mb-2 block">
-										Weight
-									</label>
+									<label className="text-xs font-medium text-slate-200 mb-2 block">Weight</label>
 									<Select
 										value={annotation.style.fontWeight}
 										onValueChange={(v) => onStyleChange({ fontWeight: v })}
@@ -389,9 +387,7 @@ export function EnterpriseAnnotationSettingsPanel({
 									</Select>
 								</div>
 								<div>
-									<label className="text-xs font-medium text-slate-200 mb-2 block">
-										Width
-									</label>
+									<label className="text-xs font-medium text-slate-200 mb-2 block">Width</label>
 									<Select
 										value={annotation.style.fontStretch}
 										onValueChange={(v) => onStyleChange({ fontStretch: v })}
@@ -600,9 +596,7 @@ export function EnterpriseAnnotationSettingsPanel({
 
 						{/* Layout presets */}
 						<div>
-							<label className="text-xs font-medium text-slate-200 mb-2 block">
-								Layout preset
-							</label>
+							<label className="text-xs font-medium text-slate-200 mb-2 block">Layout preset</label>
 							<div className="grid grid-cols-3 gap-2">
 								{IMAGE_PRESETS.map((preset) => (
 									<button
@@ -617,17 +611,41 @@ export function EnterpriseAnnotationSettingsPanel({
 									>
 										{preset.label === "Full width" && (
 											<svg width="32" height="20" viewBox="0 0 32 20" fill="none">
-												<rect x="1" y="5" width="30" height="10" rx="2" fill="currentColor" opacity="0.6" />
+												<rect
+													x="1"
+													y="5"
+													width="30"
+													height="10"
+													rx="2"
+													fill="currentColor"
+													opacity="0.6"
+												/>
 											</svg>
 										)}
 										{preset.label === "Card" && (
 											<svg width="24" height="20" viewBox="0 0 24 20" fill="none">
-												<rect x="1" y="1" width="22" height="18" rx="4" fill="currentColor" opacity="0.6" />
+												<rect
+													x="1"
+													y="1"
+													width="22"
+													height="18"
+													rx="4"
+													fill="currentColor"
+													opacity="0.6"
+												/>
 											</svg>
 										)}
 										{preset.label === "Phone" && (
 											<svg width="16" height="20" viewBox="0 0 16 20" fill="none">
-												<rect x="1" y="1" width="14" height="18" rx="4" fill="currentColor" opacity="0.6" />
+												<rect
+													x="1"
+													y="1"
+													width="14"
+													height="18"
+													rx="4"
+													fill="currentColor"
+													opacity="0.6"
+												/>
 											</svg>
 										)}
 										<span className="text-[10px] font-medium">{preset.label}</span>
@@ -653,16 +671,32 @@ export function EnterpriseAnnotationSettingsPanel({
 
 						{/* Entrance animation */}
 						{(() => {
-							const imgData = annotation.imageData ?? { animationType: "none" as ImageAnimationType, animationDuration: 500 };
+							const imgData = annotation.imageData ?? {
+								animationType: "none" as ImageAnimationType,
+								animationDuration: 500,
+							};
 							const update = (patch: Partial<ImageData>) =>
 								onImageDataChange?.({ ...imgData, ...patch });
-							const ANIM_PRESETS: { type: ImageAnimationType; label: string; icon: React.ReactNode }[] = [
+							const ANIM_PRESETS: {
+								type: ImageAnimationType;
+								label: string;
+								icon: React.ReactNode;
+							}[] = [
 								{
 									type: "none",
 									label: "None",
 									icon: (
 										<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-											<rect x="2" y="2" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" opacity="0.6" />
+											<rect
+												x="2"
+												y="2"
+												width="14"
+												height="14"
+												rx="2"
+												stroke="currentColor"
+												strokeWidth="1.5"
+												opacity="0.6"
+											/>
 										</svg>
 									),
 								},
@@ -671,9 +705,24 @@ export function EnterpriseAnnotationSettingsPanel({
 									label: "Fade",
 									icon: (
 										<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-											<rect x="2" y="2" width="14" height="14" rx="2" fill="url(#fadeGrad)" opacity="0.8" />
+											<rect
+												x="2"
+												y="2"
+												width="14"
+												height="14"
+												rx="2"
+												fill="url(#fadeGrad)"
+												opacity="0.8"
+											/>
 											<defs>
-												<linearGradient id="fadeGrad" x1="2" y1="2" x2="16" y2="2" gradientUnits="userSpaceOnUse">
+												<linearGradient
+													id="fadeGrad"
+													x1="2"
+													y1="2"
+													x2="16"
+													y2="2"
+													gradientUnits="userSpaceOnUse"
+												>
 													<stop offset="0%" stopColor="currentColor" stopOpacity="0.1" />
 													<stop offset="100%" stopColor="currentColor" stopOpacity="0.9" />
 												</linearGradient>
@@ -686,7 +735,13 @@ export function EnterpriseAnnotationSettingsPanel({
 									label: "Up",
 									icon: (
 										<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-											<path d="M9 14 L9 4 M9 4 L5 8 M9 4 L13 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+											<path
+												d="M9 14 L9 4 M9 4 L5 8 M9 4 L13 8"
+												stroke="currentColor"
+												strokeWidth="1.5"
+												strokeLinecap="round"
+												strokeLinejoin="round"
+											/>
 										</svg>
 									),
 								},
@@ -695,7 +750,13 @@ export function EnterpriseAnnotationSettingsPanel({
 									label: "Down",
 									icon: (
 										<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-											<path d="M9 4 L9 14 M9 14 L5 10 M9 14 L13 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+											<path
+												d="M9 4 L9 14 M9 14 L5 10 M9 14 L13 10"
+												stroke="currentColor"
+												strokeWidth="1.5"
+												strokeLinecap="round"
+												strokeLinejoin="round"
+											/>
 										</svg>
 									),
 								},
@@ -704,7 +765,13 @@ export function EnterpriseAnnotationSettingsPanel({
 									label: "Left",
 									icon: (
 										<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-											<path d="M14 9 L4 9 M4 9 L8 5 M4 9 L8 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+											<path
+												d="M14 9 L4 9 M4 9 L8 5 M4 9 L8 13"
+												stroke="currentColor"
+												strokeWidth="1.5"
+												strokeLinecap="round"
+												strokeLinejoin="round"
+											/>
 										</svg>
 									),
 								},
@@ -713,7 +780,13 @@ export function EnterpriseAnnotationSettingsPanel({
 									label: "Right",
 									icon: (
 										<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-											<path d="M4 9 L14 9 M14 9 L10 5 M14 9 L10 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+											<path
+												d="M4 9 L14 9 M14 9 L10 5 M14 9 L10 13"
+												stroke="currentColor"
+												strokeWidth="1.5"
+												strokeLinecap="round"
+												strokeLinejoin="round"
+											/>
 										</svg>
 									),
 								},
@@ -722,8 +795,25 @@ export function EnterpriseAnnotationSettingsPanel({
 									label: "Zoom",
 									icon: (
 										<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-											<rect x="5" y="5" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
-											<rect x="2" y="2" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
+											<rect
+												x="5"
+												y="5"
+												width="8"
+												height="8"
+												rx="1.5"
+												stroke="currentColor"
+												strokeWidth="1.5"
+												opacity="0.4"
+											/>
+											<rect
+												x="2"
+												y="2"
+												width="14"
+												height="14"
+												rx="2"
+												stroke="currentColor"
+												strokeWidth="1.5"
+											/>
 										</svg>
 									),
 								},
@@ -985,9 +1075,7 @@ export function EnterpriseAnnotationSettingsPanel({
 											</Select>
 										</div>
 										<div>
-											<label className="text-xs font-medium text-slate-200 mb-2 block">
-												Width
-											</label>
+											<label className="text-xs font-medium text-slate-200 mb-2 block">Width</label>
 											<Select
 												value={data.fontStretch ?? "normal"}
 												onValueChange={(v) => update({ fontStretch: v })}

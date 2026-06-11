@@ -8,7 +8,8 @@
 			"title": "Odak Modu",
 			"manual": "Manuel",
 			"auto": "Otomatik",
-			"autoDescription": "Kamera kaydedilen imleç konumunu takip eder"
+			"autoDescription": "Kamera kaydedilen imleç konumunu takip eder",
+			"lockedDisclaimer": "Controlled by the global Auto-Focus toggle in the timeline. Turn it off to set focus mode per zoom."
 		},
 		"threeD": {
 			"title": "3D Döndürme",
@@ -46,6 +47,9 @@
 		"dualFrame": "Çift Kare",
 		"webcamSize": "Webcam Boyutu",
 		"noWebcam": "Web kamerası yok",
+		"mirrorWebcam": "Web kamerasını aynala",
+		"reactiveWebcam": "Yakınlaştırınca küçült",
+		"reactiveWebcamDescription": "Video yakınlaştırıldığında kamera yumuşakça küçülür, böylece yoldan çekilir.",
 		"webcamSizeSmall": "S",
 		"webcamSizeMedium": "M",
 		"webcamSizeLarge": "L",
@@ -215,12 +219,15 @@
 		"errorLoadFailed": "Yazı tipi yüklenemedi. Lütfen Google Fonts URL'sinin doğruluğunu kontrol edin."
 	},
 	"cursor": {
+		"theme": "İmleç Stili",
+		"themeDefault": "Varsayılan",
 		"show": "İmleci Göster",
 		"size": "Boyut",
 		"smoothing": "Yumuşatma",
 		"motionBlur": "Hareket Bulanıklığı",
 		"clickBounce": "Tıklama Sıçraması",
-		"clipToBounds": "Tuvale Kırp"
+		"clipToBounds": "Tuvale Kırp",
+		"clipToBoundsDescription": "Keeps the cursor inside the video frame. Turn off to let the cursor extend past the edges - useful when zoomed in or panned."
 	},
 	"language": {
 		"title": "Dil"

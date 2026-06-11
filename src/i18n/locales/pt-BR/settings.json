@@ -8,7 +8,8 @@
 			"title": "Modo de Foco",
 			"manual": "Manual",
 			"auto": "Automático",
-			"autoDescription": "A câmera segue a posição do cursor gravado"
+			"autoDescription": "A câmera segue a posição do cursor gravado",
+			"lockedDisclaimer": "Controlled by the global Auto-Focus toggle in the timeline. Turn it off to set focus mode per zoom."
 		},
 		"threeD": {
 			"title": "Rotação 3D",
@@ -46,6 +47,8 @@
 		"noWebcam": "Sem Webcam",
 		"webcamShape": "Formato da Câmera",
 		"webcamSize": "Tamanho da Webcam",
+		"reactiveWebcam": "Encolher ao ampliar",
+		"reactiveWebcamDescription": "A câmera diminui suavemente enquanto o vídeo está ampliado, para não atrapalhar.",
 		"webcamSizeSmall": "S",
 		"webcamSizeMedium": "M",
 		"webcamSizeLarge": "L",
@@ -62,7 +65,8 @@
 		"corner_bottom_left": "Bottom Left",
 		"corner_bottom_right": "Bottom Right",
 		"stack_top": "Webcam Top",
-		"stack_bottom": "Webcam Bottom"
+		"stack_bottom": "Webcam Bottom",
+		"mirrorWebcam": "Mirror Webcam"
 	},
 	"effects": {
 		"title": "Efeitos de Vídeo",
@@ -213,6 +217,17 @@
 		"errorTimeout": "A fonte demorou muito para carregar. Por favor, verifique a URL e tente novamente.",
 		"errorLoadFailed": "A fonte não pôde ser carregada. Por favor, verifique se a URL do Google Fonts está correta."
 	},
+	"cursor": {
+		"theme": "Estilo do cursor",
+		"themeDefault": "Padrão",
+		"show": "Mostrar cursor",
+		"size": "Tamanho",
+		"smoothing": "Suavização",
+		"motionBlur": "Desfoque de movimento",
+		"clickBounce": "Rebote ao clicar",
+		"clipToBounds": "Recortar à tela",
+		"clipToBoundsDescription": "Mantém o cursor dentro do quadro do vídeo. Desative para permitir que o cursor ultrapasse as bordas — útil ao aplicar zoom ou ao deslocar."
+	},
 	"language": {
 		"title": "Idioma"
 	},
@@ -231,14 +246,6 @@
 		"slideLeft": "Slide Left",
 		"typewriter": "Typewriter",
 		"pulse": "Pulse"
-	},
-	"cursor": {
-		"show": "Show Cursor",
-		"size": "Size",
-		"smoothing": "Smoothing",
-		"motionBlur": "Motion Blur",
-		"clickBounce": "Click Bounce",
-		"clipToBounds": "Clip to Canvas"
 	},
 	"timeline": {
 		"title": "Timeline",

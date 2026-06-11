@@ -79,12 +79,18 @@ type NativeWindowsRecordingHandle = {
 	finalizing: boolean;
 	paused: boolean;
 	webcamRecorder: RecorderHandle | null;
+	// File name the webcam sidecar streams to on disk, captured at start so finalize
+	// targets the exact same file regardless of the native recordingId echoed back.
+	webcamFileName?: string;
 };
 
 type NativeMacRecordingHandle = {
 	recordingId: number;
 	finalizing: boolean;
 	paused: boolean;
+	// File name the webcam sidecar streams to on disk, captured at start so finalize
+	// targets the exact same file regardless of the native recordingId echoed back.
+	webcamFileName?: string;
 };
 
 export function useScreenRecorder(): UseScreenRecorderReturn {
@@ -135,10 +141,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	}, []);
 
 	const selectMimeType = () => {
-		// H.264 first: hardware-accelerated on all modern devices, gives sharp
-		// real-time output. AV1/VP9 are great for distribution but too
-		// CPU-intensive for live 60 fps capture — they produce blurry frames
-		// when the software encoder can't keep up.
+		// H.264 first: hardware-accelerated, so sharp real-time output. AV1/VP9 are
+		// better for distribution but too CPU-heavy for live 60 fps capture (software
+		// encoder falls behind and produces blurry frames).
 		const preferred = [
 			"video/webm;codecs=h264",
 			"video/webm;codecs=vp8",
@@ -339,7 +344,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						window.electronAPI?.discardCursorTelemetry(activeRecordingId);
 						return;
 					}
-					// When streaming succeeded the blob is empty — the data is already on disk.
+					// When streaming succeeded the blob is empty; the data is already on disk.
 					if (!activeScreenRecorder.isStreaming() && screenBlob.size === 0) {
 						return;
 					}
@@ -398,10 +403,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				} catch (error) {
 					console.error("Error saving recording:", error);
 				} finally {
-					// Discard any recorder whose data was not part of a successful save
-					// — a discarded run, a failed save, or a webcam whose disk write
-					// failed (so it was omitted while the screen still saved) — so no
-					// stream or partial file is left open or orphaned.
+					// Discard any recorder whose data wasn't part of a successful save (discarded
+					// run, failed save, or a webcam whose disk write failed while the screen still
+					// saved) so no stream or partial file is left open or orphaned.
 					if (!storeSucceeded) {
 						await activeScreenRecorder.discard().catch(() => undefined);
 					}
@@ -456,12 +460,15 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			try {
 				const result = await window.electronAPI.stopNativeWindowsRecording(discard);
 				if (discard || result.discarded) {
+					// Streamed webcam left an open stream + partial file; drop it.
+					await activeWebcamRecorder?.discard().catch(() => undefined);
 					clearNativeRecordingState();
 					return true;
 				}
 				if (!result.success) {
 					console.error("Failed to stop native Windows recording:", result.error);
 					toast.error(result.error ?? "Failed to stop native Windows recording");
+					await activeWebcamRecorder?.discard().catch(() => undefined);
 					activeNativeRecording.finalizing = false;
 					return true;
 				}
@@ -469,28 +476,57 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				const nativeScreenPath = result.session?.screenVideoPath ?? result.path;
 				let storedSession = result.session;
 				if (activeWebcamRecorder && nativeScreenPath) {
+					// Await the blob promise to drain in-flight chunk writes (and surface a
+					// mid-stream write error) even when streaming, where it resolves empty.
 					const webcamBlob = await activeWebcamRecorder.recordedBlobPromise.catch(() => null);
+					const webcamStreamed = activeWebcamRecorder.isStreaming();
 					const screenRead = await window.electronAPI.readBinaryFile(nativeScreenPath);
-					if (webcamBlob && webcamBlob.size > 0 && screenRead.success && screenRead.data) {
-						const fixedWebcamBlob = await fixWebmDuration(webcamBlob, duration);
-						const nativeScreenFileName =
-							nativeScreenPath.split(/[\\/]/).pop() ??
-							`${RECORDING_FILE_PREFIX}${activeNativeRecording.recordingId}.mp4`;
-						const webcamFileName = `${RECORDING_FILE_PREFIX}${activeNativeRecording.recordingId}${WEBCAM_FILE_SUFFIX}${VIDEO_FILE_EXTENSION}`;
-						const stored = await window.electronAPI.storeRecordedSession({
-							screen: {
-								videoData: screenRead.data,
-								fileName: nativeScreenFileName,
-							},
-							webcam: {
-								videoData: await fixedWebcamBlob.arrayBuffer(),
-								fileName: webcamFileName,
-							},
-							createdAt: activeNativeRecording.recordingId,
-							cursorCaptureMode,
-						});
-						if (stored.success && stored.session) {
-							storedSession = stored.session;
+					const hasWebcamData = webcamStreamed || (webcamBlob != null && webcamBlob.size > 0);
+					const canStore = hasWebcamData && screenRead.success && !!screenRead.data;
+					// Once store-recorded-session is called it owns the webcam's disk stream
+					// (it finalizes the file). Until then, any opened stream is ours to drop.
+					// store-recorded-session finalizes (and thus owns) the webcam disk stream
+					// only once it returns success. Mark ownership after that resolves, and
+					// discard in `finally` so a throw in fixWebmDuration/storeRecordedSession
+					// still drops the partial sidecar instead of leaking it.
+					let storeOwnsWebcam = false;
+					try {
+						if (canStore && screenRead.data) {
+							const nativeScreenFileName =
+								nativeScreenPath.split(/[\\/]/).pop() ??
+								`${RECORDING_FILE_PREFIX}${activeNativeRecording.recordingId}.mp4`;
+							const webcamFileName =
+								activeNativeRecording.webcamFileName ??
+								`${RECORDING_FILE_PREFIX}${activeNativeRecording.recordingId}${WEBCAM_FILE_SUFFIX}${VIDEO_FILE_EXTENSION}`;
+							// Streamed webcam bytes are already on disk; send an empty buffer and let
+							// the main process patch the WebM duration there (mirrors the screen path).
+							const webcamVideoData = webcamStreamed
+								? new ArrayBuffer(0)
+								: await (await fixWebmDuration(webcamBlob as Blob, duration)).arrayBuffer();
+							const stored = await window.electronAPI.storeRecordedSession({
+								screen: {
+									videoData: screenRead.data,
+									fileName: nativeScreenFileName,
+								},
+								webcam: {
+									videoData: webcamVideoData,
+									fileName: webcamFileName,
+								},
+								createdAt: activeNativeRecording.recordingId,
+								cursorCaptureMode,
+								durationMs: duration,
+							});
+							storeOwnsWebcam = stored.success;
+							if (stored.success && stored.session) {
+								storedSession = stored.session;
+							}
+						}
+					} finally {
+						if (!storeOwnsWebcam) {
+							// Webcam never reached a successful store (no usable data, missing screen
+							// file, a mid-stream write error, or store threw/returned failure). Drop
+							// any partial file/stream. No-op for an in-memory recorder.
+							await activeWebcamRecorder.discard().catch(() => undefined);
 						}
 					}
 				}
@@ -542,17 +578,30 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					if (activeWebcamRecorder.recorder.state !== "inactive") {
 						activeWebcamRecorder.recorder.stop();
 					}
+					// Await the blob promise to drain in-flight chunk writes (and surface a
+					// mid-stream write error) even when streaming, where it resolves empty.
 					const webcamBlob = await activeWebcamRecorder.recordedBlobPromise;
+					const webcamFileName =
+						activeNativeRecording.webcamFileName ??
+						`${RECORDING_FILE_PREFIX}${activeNativeRecording.recordingId}${WEBCAM_FILE_SUFFIX}${VIDEO_FILE_EXTENSION}`;
+					if (activeWebcamRecorder.isStreaming()) {
+						// Streamed webcam bytes are already on disk; hand the attach step an
+						// empty buffer and let the main process patch the duration there.
+						return { videoData: new ArrayBuffer(0), fileName: webcamFileName };
+					}
 					if (!webcamBlob || webcamBlob.size === 0) {
 						return undefined;
 					}
 					const fixedWebcamBlob = await fixWebmDuration(webcamBlob, duration);
 					return {
 						videoData: await fixedWebcamBlob.arrayBuffer(),
-						fileName: `${RECORDING_FILE_PREFIX}${activeNativeRecording.recordingId}${WEBCAM_FILE_SUFFIX}${VIDEO_FILE_EXTENSION}`,
+						fileName: webcamFileName,
 					};
 				} catch (error) {
 					console.error("Failed to finalize native macOS webcam recording:", error);
+					// A streamed recorder that errored mid-flight left a partial file and an
+					// open disk stream; discard both so nothing is orphaned.
+					await activeWebcamRecorder.discard().catch(() => undefined);
 					return undefined;
 				}
 			})();
@@ -570,12 +619,15 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				const result = await window.electronAPI.stopNativeMacRecording(discard);
 				const webcamAsset = await webcamAssetPromise;
 				if (discard || result.discarded) {
+					// Streamed webcam left an open stream + partial file; drop it.
+					await activeWebcamRecorder?.discard().catch(() => undefined);
 					clearNativeRecordingState();
 					return true;
 				}
 				if (!result.success) {
 					console.error("Failed to stop native macOS recording:", result.error);
 					toast.error(result.error ?? "Failed to stop native macOS recording");
+					await activeWebcamRecorder?.discard().catch(() => undefined);
 					activeNativeRecording.finalizing = false;
 					return true;
 				}
@@ -586,6 +638,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						recordingId: activeNativeRecording.recordingId,
 						webcam: webcamAsset,
 						cursorCaptureMode,
+						// Lets the main process patch the WebM duration of a streamed webcam,
+						// whose bytes are on disk and so were never duration-fixed in memory.
+						durationMs: duration,
 					});
 					if (attachResult.success) {
 						result.session = attachResult.session;
@@ -593,6 +648,10 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						console.error("Failed to attach native macOS webcam recording:", attachResult.error);
 						toast.error(attachResult.error ?? "Failed to store webcam recording");
 					}
+				} else if (webcamAsset && activeWebcamRecorder?.isStreaming()) {
+					// Streamed webcam with no screen output to attach to: drop the partial
+					// file and close its stream so it isn't orphaned on disk.
+					await activeWebcamRecorder.discard().catch(() => undefined);
 				}
 
 				clearNativeRecordingState();
@@ -817,12 +876,19 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					return true;
 				}
 			}
+			const windowsWebcamFileName = `${RECORDING_FILE_PREFIX}${activeRecordingId}${WEBCAM_FILE_SUFFIX}${VIDEO_FILE_EXTENSION}`;
 			const browserWebcamRecorder =
 				webcamEnabled && webcamStream.current
-					? createRecorderHandle(webcamStream.current, {
-							mimeType: selectMimeType(),
-							videoBitsPerSecond: BITRATE_BASE,
-						})
+					? createRecorderHandle(
+							webcamStream.current,
+							{
+								mimeType: selectMimeType(),
+								videoBitsPerSecond: BITRATE_BASE,
+							},
+							// Stream webcam chunks to disk instead of buffering the whole clip in
+							// renderer memory, so a long recording can't OOM-crash on stop (#616).
+							windowsWebcamFileName,
+						)
 					: null;
 			if (webcamEnabled && !browserWebcamRecorder) {
 				stopWebcamPreviewStream();
@@ -871,6 +937,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				) {
 					browserWebcamRecorder.recorder.stop();
 				}
+				// The sidecar may already be streaming to disk; drop the partial file
+				// and close its stream so a failed start doesn't orphan it.
+				await browserWebcamRecorder?.discard().catch(() => undefined);
 				throw new Error(result.error ?? "Native Windows capture failed.");
 			}
 
@@ -880,6 +949,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				finalizing: false,
 				paused: false,
 				webcamRecorder: browserWebcamRecorder,
+				webcamFileName: browserWebcamRecorder ? windowsWebcamFileName : undefined,
 			};
 			webcamRecorder.current = browserWebcamRecorder;
 			accumulatedDurationMs.current = 0;
@@ -928,6 +998,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				Number(selectedSource.display_id) || parseMacDisplayIdFromSourceId(selectedSource.id);
 			const windowId = parseMacWindowIdFromSourceId(selectedSource.id);
 			let nativeWebcamRecorder: RecorderHandle | null = null;
+			let macWebcamFileName: string | undefined;
 			if (webcamEnabled) {
 				if (!webcamReady.current) {
 					await new Promise<void>((resolve) => {
@@ -947,10 +1018,17 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					return true;
 				}
 				if (webcamStream.current) {
-					nativeWebcamRecorder = createRecorderHandle(webcamStream.current, {
-						mimeType: selectMimeType(),
-						videoBitsPerSecond: BITRATE_BASE,
-					});
+					macWebcamFileName = `${RECORDING_FILE_PREFIX}${activeRecordingId}${WEBCAM_FILE_SUFFIX}${VIDEO_FILE_EXTENSION}`;
+					nativeWebcamRecorder = createRecorderHandle(
+						webcamStream.current,
+						{
+							mimeType: selectMimeType(),
+							videoBitsPerSecond: BITRATE_BASE,
+						},
+						// Stream webcam chunks to disk instead of buffering the whole clip in
+						// renderer memory, so a long recording can't OOM-crash on stop (#616).
+						macWebcamFileName,
+					);
 				} else {
 					webcamAcquireId.current++;
 					setWebcamEnabledState(false);
@@ -960,6 +1038,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				if (nativeWebcamRecorder && nativeWebcamRecorder.recorder.state !== "inactive") {
 					nativeWebcamRecorder.recorder.stop();
 				}
+				// Drop the partial streamed sidecar so a cancelled countdown can't orphan it.
+				await nativeWebcamRecorder?.discard().catch(() => undefined);
 				return true;
 			}
 			const request: NativeMacRecordingRequest = {
@@ -1009,12 +1089,16 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				if (nativeWebcamRecorder && nativeWebcamRecorder.recorder.state !== "inactive") {
 					nativeWebcamRecorder.recorder.stop();
 				}
+				// Drop the partial streamed sidecar so a failed start doesn't orphan it.
+				await nativeWebcamRecorder?.discard().catch(() => undefined);
 				throw new Error(result.error ?? "Native macOS capture failed.");
 			}
 			if (!isCountdownRunActive(countdownRunToken)) {
 				if (nativeWebcamRecorder && nativeWebcamRecorder.recorder.state !== "inactive") {
 					nativeWebcamRecorder.recorder.stop();
 				}
+				// Drop the partial streamed sidecar before bailing on the cancelled run.
+				await nativeWebcamRecorder?.discard().catch(() => undefined);
 				await window.electronAPI.stopNativeMacRecording(true);
 				return true;
 			}
@@ -1024,6 +1108,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				recordingId: result.recordingId,
 				finalizing: false,
 				paused: false,
+				webcamFileName: macWebcamFileName,
 			};
 			webcamRecorder.current = nativeWebcamRecorder;
 			accumulatedDurationMs.current = 0;
@@ -1069,9 +1154,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		try {
 			const platform = await window.electronAPI.getPlatform();
 			if (platform === "darwin" && cursorCaptureMode === "editable-overlay") {
+				// The main process shows a native dialog that deep-links to the
+				// Accessibility settings pane when access is missing, so we just stop
+				// here and let the user grant it and press record again.
 				const access = await window.electronAPI.requestNativeMacCursorAccess();
 				if (!access.granted) {
-					toast.info(t("recording.accessibilityAllowAndRetry"));
 					return;
 				}
 			}

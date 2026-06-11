@@ -24,14 +24,21 @@ import type {
 import {
 	DEFAULT_CROP_REGION,
 	DEFAULT_SUBTITLE_STYLE,
+	DEFAULT_WEBCAM_MIRRORED,
+	DEFAULT_WEBCAM_REACTIVE_ZOOM,
 	DEFAULT_WEBCAM_STACK_POSITION,
 } from "@/components/video-editor/types";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
 
-// Undoable state — selection IDs are intentionally excluded (undoing a
-// selection change would feel surprising to the user).
+// Undoable state. Selection IDs are excluded, since undoing a selection change
+// would feel surprising.
 export interface EditorState {
 	zoomRegions: ZoomRegion[];
+	/** Magic-wand auto-zoom toggle. When on, fresh recordings get suggested zooms. */
+	autoZoomEnabled: boolean;
+	/** Global Auto-Focus toggle: when on, all zooms follow the cursor and the
+	 * per-zoom Focus Mode selector is locked. */
+	autoFocusAll: boolean;
 	trimRegions: TrimRegion[];
 	speedRegions: SpeedRegion[];
 	webcamFocusRegions: WebcamFocusRegion[];
@@ -47,6 +54,8 @@ export interface EditorState {
 	aspectRatio: AspectRatio;
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape: WebcamMaskShape;
+	webcamMirrored: boolean;
+	webcamReactiveZoom: boolean;
 	webcamSizePreset: WebcamSizePreset;
 	webcamPosition: WebcamPosition | null;
 	webcamCornerPreset: WebcamCornerPreset | null;
@@ -60,6 +69,8 @@ export interface EditorState {
 
 export const INITIAL_EDITOR_STATE: EditorState = {
 	zoomRegions: [],
+	autoZoomEnabled: true,
+	autoFocusAll: false,
 	trimRegions: [],
 	speedRegions: [],
 	webcamFocusRegions: [],
@@ -75,6 +86,8 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	aspectRatio: DEFAULT_EDITOR_LAYOUT_SETTINGS.aspectRatio,
 	webcamLayoutPreset: DEFAULT_WEBCAM_SETTINGS.layoutPreset,
 	webcamMaskShape: DEFAULT_WEBCAM_SETTINGS.maskShape,
+	webcamMirrored: DEFAULT_WEBCAM_MIRRORED,
+	webcamReactiveZoom: DEFAULT_WEBCAM_REACTIVE_ZOOM,
 	webcamSizePreset: DEFAULT_WEBCAM_SETTINGS.sizePreset,
 	webcamPosition: DEFAULT_WEBCAM_SETTINGS.position,
 	webcamCornerPreset: null,
@@ -112,8 +125,8 @@ function withCheckpoint(history: History, newPresent: EditorState): History {
 export function useEditorHistory(initial: EditorState = INITIAL_EDITOR_STATE) {
 	const [history, setHistory] = useState<History>({ past: [], present: initial, future: [] });
 
-	// Tracks whether a live-update series (e.g. slider drag) is in progress.
-	// The first updateState call saves the pre-interaction state as a checkpoint.
+	// True while a live-update series (e.g. slider drag) is in progress. The first
+	// updateState call checkpoints the pre-interaction state.
 	const dirtyRef = useRef(false);
 
 	const pushState = useCallback((update: StateUpdate) => {
