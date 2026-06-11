@@ -61,7 +61,8 @@
 		"noneHeard": "Không phát hiện thấy lời nói.",
 		"noAudio": "Video này không có âm thanh dùng được để chuyển thành văn bản.",
 		"failed": "Không thể tạo phụ đề.",
-		"truncated": "Chỉ {{minutes}} phút đầu tiên được chuyển thành văn bản."
+		"truncated": "Chỉ {{minutes}} phút đầu tiên được chuyển thành văn bản.",
+		"language": "Spoken language"
 	},
 	"emptyState": {
 		"title": "Không có dự án nào được mở",

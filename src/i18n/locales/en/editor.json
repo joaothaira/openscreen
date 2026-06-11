@@ -61,7 +61,8 @@
 		"noneHeard": "No speech was detected.",
 		"noAudio": "This video has no usable audio to transcribe.",
 		"failed": "Could not generate captions.",
-		"truncated": "Only the first {{minutes}} minutes were transcribed."
+		"truncated": "Only the first {{minutes}} minutes were transcribed.",
+		"language": "Spoken language"
 	},
 	"emptyState": {
 		"title": "No project open",

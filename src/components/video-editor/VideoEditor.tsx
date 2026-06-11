@@ -198,6 +198,45 @@ function getVideoDurationMs(sourcePath: string): Promise<number> {
 
 const CAPTION_WORD_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
+// Values are Whisper language names (transformers.js); labels are native names so
+// they need no translation. Forcing the language skips Whisper's detection pass.
+const CAPTION_LANGUAGES = [
+	{ value: "english", label: "English" },
+	{ value: "portuguese", label: "Português" },
+	{ value: "spanish", label: "Español" },
+	{ value: "french", label: "Français" },
+	{ value: "italian", label: "Italiano" },
+	{ value: "german", label: "Deutsch" },
+	{ value: "japanese", label: "日本語" },
+	{ value: "korean", label: "한국어" },
+	{ value: "russian", label: "Русский" },
+	{ value: "turkish", label: "Türkçe" },
+	{ value: "vietnamese", label: "Tiếng Việt" },
+	{ value: "chinese", label: "中文" },
+	{ value: "arabic", label: "العربية" },
+	{ value: "hindi", label: "हिन्दी" },
+] as const;
+
+const LOCALE_TO_CAPTION_LANGUAGE: Record<string, string> = {
+	en: "english",
+	"pt-BR": "portuguese",
+	es: "spanish",
+	fr: "french",
+	it: "italian",
+	"ja-JP": "japanese",
+	"ko-KR": "korean",
+	ru: "russian",
+	tr: "turkish",
+	vi: "vietnamese",
+	"zh-CN": "chinese",
+	"zh-TW": "chinese",
+	ar: "arabic",
+};
+
+function captionLanguageForLocale(locale: string): string {
+	return LOCALE_TO_CAPTION_LANGUAGE[locale] ?? "english";
+}
+
 export default function VideoEditor() {
 	const {
 		state: editorState,
@@ -353,6 +392,7 @@ export default function VideoEditor() {
 	const effectiveShowCursor = showCursor && hasEditableCursorRecording;
 	const showCursorSettings = hasEditableCursorRecording;
 	const { locale, setLocale, t: rawT } = useI18n();
+	const [captionLanguage, setCaptionLanguage] = useState(() => captionLanguageForLocale(locale));
 	const t = useScopedT("editor");
 	const ts = useScopedT("settings");
 	const availableLocales = getAvailableLocales();
@@ -2606,6 +2646,7 @@ export default function VideoEditor() {
 				const trimRegionsForTranscribe = shiftTrimRegionsMsForCaptionBuffer(trimRegions, trimMs);
 
 				const transcribeOptions = {
+					language: captionLanguage,
 					onStatus: (phase: "model" | "transcribe") => {
 						if (phase === "model") {
 							toast.loading(t("autoCaptions.loadingModel"), {
@@ -2700,7 +2741,7 @@ export default function VideoEditor() {
 				setIsAutoCaptioning(false);
 			}
 		},
-		[videoPath, trimRegions, pushState, t],
+		[videoPath, trimRegions, pushState, t, captionLanguage],
 	);
 
 	const handleSaveDiagnostic = useCallback(async () => {
@@ -2780,6 +2821,21 @@ export default function VideoEditor() {
 						<DialogDescription>{t("autoCaptions.dialogDescription")}</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-4 py-2">
+						<div className="grid gap-2">
+							<Label htmlFor="caption-language">{t("autoCaptions.language")}</Label>
+							<Select value={captionLanguage} onValueChange={setCaptionLanguage}>
+								<SelectTrigger id="caption-language" className="h-9">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{CAPTION_LANGUAGES.map((lang) => (
+										<SelectItem key={lang.value} value={lang.value}>
+											{lang.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
 						<div className="grid gap-2">
 							<Label htmlFor="caption-min-words">{t("autoCaptions.minWords")}</Label>
 							<Select

@@ -61,7 +61,8 @@
 		"noneHeard": "Aucune parole n'a été détectée.",
 		"noAudio": "Cette vidéo ne contient pas d'audio exploitable pour la transcription.",
 		"failed": "Impossible de générer les sous-titres.",
-		"truncated": "Seules les {{minutes}} premières minutes ont été transcrites."
+		"truncated": "Seules les {{minutes}} premières minutes ont été transcrites.",
+		"language": "Spoken language"
 	},
 	"emptyState": {
 		"title": "Aucun projet ouvert",

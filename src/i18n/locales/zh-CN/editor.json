@@ -61,7 +61,8 @@
 		"noneHeard": "未检测到语音。",
 		"noAudio": "此视频没有可用于转写的音频。",
 		"failed": "无法生成字幕。",
-		"truncated": "仅转写了最前 {{minutes}} 分钟。"
+		"truncated": "仅转写了最前 {{minutes}} 分钟。",
+		"language": "Spoken language"
 	},
 	"emptyState": {
 		"title": "未打开任何项目",
